@@ -1,0 +1,17 @@
+[
+{
+  "modid": "nerfspawners",
+  "name": "nerfspawners",
+  "description": "",
+  "version": $version,
+  "credits": "",
+  "logoFile": "",
+  "mcversion": $mcversion,
+  "url": "https://github.com/OrdinaryMinecraft/NerfSpawners",
+  "updateUrl": "",
+  "authorList": ["flametaichou"],
+  "parent":"",
+  "screenshots": [],
+  "dependencies": []
+}
+]
