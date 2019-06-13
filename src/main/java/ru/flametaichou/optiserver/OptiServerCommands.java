@@ -170,9 +170,15 @@ public class OptiServerCommands extends CommandBase
                 int itemsOnGround = 0;
                 int mobsAlive = 0;
                 int friendlyAlive = 0;
+                int customNpcs = 0;
                 int playersAlive = 0;
                 int chunksLoaded = 0;
                 int activeMobSpawners = 0;
+                int hoppers = 0;
+                int activeHoppers = 0;
+
+                //Map<String, Integer> friendlyMobsMap = new HashMap<String, Integer>();
+
                 for (WorldServer ws : MinecraftServer.getServer().worldServers) {
                     chunksLoaded += ws.theChunkProviderServer.loadedChunks.size();
                     for (Object obj : ws.loadedEntityList) {
@@ -183,13 +189,38 @@ public class OptiServerCommands extends CommandBase
                         } else if (obj instanceof EntityPlayer) {
                             playersAlive++;
                         } else if (obj instanceof EntityLiving) {
-                            friendlyAlive++;
+                            String className = obj.getClass().getSimpleName();
+                            if (className.equals("EntityCustomNpc")) {
+                                customNpcs++;
+                            } else {
+                                friendlyAlive++;
+                            }
+                            /*
+                            String key = obj.getClass().getSimpleName();
+                            if (friendlyMobsMap.get(key) != null) {
+                                friendlyMobsMap.put(key, friendlyMobsMap.get(key) + 1);
+                            } else {
+                                friendlyMobsMap.put(key, 1);
+                            }
+                            */
                         }
                     }
 
                     for (Object obj : ws.loadedTileEntityList) {
                         if (obj instanceof TileEntityMobSpawner) {
                             activeMobSpawners++;
+                        } else if (obj instanceof TileEntityHopper) {
+                            hoppers++;
+                            TileEntityHopper hopper = (TileEntityHopper) obj;
+                            int itemsCount = 0;
+                            for (int i = 0; i < hopper.getSizeInventory(); i++) {
+                                if (hopper.getStackInSlot(i) != null) {
+                                    itemsCount++;
+                                }
+                            }
+                            if (itemsCount > 0) {
+                                activeHoppers++;
+                            }
                         }
                     }
                 }
@@ -197,11 +228,21 @@ public class OptiServerCommands extends CommandBase
                 sender.addChatMessage(new ChatComponentTranslation("Items on the ground: " + itemsOnGround));
                 sender.addChatMessage(new ChatComponentTranslation("Mobs alive: " + mobsAlive));
                 sender.addChatMessage(new ChatComponentTranslation("Friendly-mobs alive: " + friendlyAlive));
+                sender.addChatMessage(new ChatComponentTranslation("Custom NPCs alive: " + customNpcs));
                 sender.addChatMessage(new ChatComponentTranslation("Players alive: " + playersAlive));
                 sender.addChatMessage(new ChatComponentTranslation("Chunks loaded: " + chunksLoaded));
+                sender.addChatMessage(new ChatComponentTranslation("Active hoppers: " + activeHoppers));
+                sender.addChatMessage(new ChatComponentTranslation("Idle hoppers: " + (hoppers - activeHoppers)));
                 sender.addChatMessage(new ChatComponentTranslation("Active mob spawners: " + activeMobSpawners));
 
                 sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+
+                /*
+                sender.addChatMessage(new ChatComponentTranslation("FRIENDLY DEBUG:"));
+                for (Map.Entry e : friendlyMobsMap.entrySet()) {
+                    System.out.println(e.getKey() + " " + e.getValue());
+                }
+                */
 
                 return;
             }

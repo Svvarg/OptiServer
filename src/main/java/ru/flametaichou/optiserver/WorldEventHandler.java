@@ -7,6 +7,7 @@ import net.minecraft.entity.*;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.passive.EntityAnimal;
+import net.minecraft.entity.passive.IAnimals;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
@@ -179,7 +180,8 @@ public class WorldEventHandler {
 
     private boolean entityCanBeUnloaded(EntityLiving entityLiving) {
         return (!(entityLiving instanceof IEntityOwnable) &&
-                !(entityLiving instanceof EntityAnimal) &&
+                !(entityLiving instanceof IAnimals) &&
+                !(entityLiving instanceof IMerchant) &&
                 !entityLiving.isNoDespawnRequired() &&
                 !entityLiving.getClass().getName().contains("CustomNpc"));
     }
