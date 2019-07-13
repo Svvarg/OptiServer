@@ -6,10 +6,12 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.IProjectile;
+import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.monster.EntityMob;
-import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityHopper;
@@ -52,7 +54,7 @@ public class OptiServerCommands extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender var1)
     {
-        return "/optiserver <tps/chunks/clear/mem/largest/status>";
+        return "/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding>";
     }
 
     @Override
@@ -67,7 +69,7 @@ public class OptiServerCommands extends CommandBase
 
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status>"));
+                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding>"));
                 return;
             }
             if (argString[0].equals("tps")) {
@@ -247,6 +249,116 @@ public class OptiServerCommands extends CommandBase
                 return;
             }
 
+            if (argString[0].equals("hoppers")) {
+
+                sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+
+                for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+                    for (Object obj : ws.loadedTileEntityList) {
+                        if (obj instanceof TileEntityHopper) {
+                            sender.addChatMessage(new ChatComponentTranslation(obj.toString()));
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            if (argString[0].equals("entitydebug")) {
+
+                sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+
+                Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
+
+                for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+                    List<Entity> loadedEntities = ws.loadedEntityList;
+                    Iterator iterator = loadedEntities.iterator();
+                    while (iterator.hasNext()) {
+                        Entity e = (Entity) iterator.next();
+                        String key = e.getClass().getSimpleName();
+
+                        if (e instanceof EntityLiving) {
+                            EntityLiving entityLiving = (EntityLiving) e;
+                            if (OptiServerUtils.entityCanBeUnloaded(entityLiving)) {
+                                if (entitiesMap.get(key) == null) {
+                                    entitiesMap.put(key, 1);
+                                } else {
+                                    entitiesMap.put(key, entitiesMap.get(key) + 1);
+                                }
+                            }
+                        } else if (e instanceof EntityItem) {
+                            EntityItem entityItem = (EntityItem) e;
+
+                            String itemId = String.valueOf(Item.getIdFromItem(entityItem.getEntityItem().getItem()));
+                            if (!ConfigHelper.itemBlacklist.contains(itemId)) {
+                                if (entitiesMap.get(key) == null) {
+                                    entitiesMap.put(key, 1);
+                                } else {
+                                    entitiesMap.put(key, entitiesMap.get(key) + 1);
+                                }
+                            }
+                        } else if (e instanceof EntityFallingBlock || e instanceof IProjectile) {
+                            if (entitiesMap.get(key) == null) {
+                                entitiesMap.put(key, 1);
+                            } else {
+                                entitiesMap.put(key, entitiesMap.get(key) + 1);
+                            }
+                        }
+                    }
+                }
+
+                sender.addChatMessage(new ChatComponentTranslation("ENTITIES REMOVE DEBUG:"));
+                for (Map.Entry e : entitiesMap.entrySet()) {
+                    sender.addChatMessage(new ChatComponentTranslation(e.getKey() + " " + e.getValue()));
+                }
+                sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+
+                return;
+            }
+
+            if (argString[0].equals("breeding")) {
+
+                sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+                sender.addChatMessage(new ChatComponentTranslation("BREEDING:"));
+
+                Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
+
+                for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+                    List<Entity> loadedEntities = ws.loadedEntityList;
+                    Iterator iterator = loadedEntities.iterator();
+                    while (iterator.hasNext()) {
+                        Entity e = (Entity) iterator.next();
+                        String key = e.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + e.posX + " " + e.posY + " " + e.posZ;
+                        if (entitiesMap.get(key) != null) {
+                            entitiesMap.put(key, entitiesMap.get(key) + 1);
+                        } else {
+                            entitiesMap.put(key, 1);
+                        }
+                    }
+
+                    List<Entity> loadedTileEntities = ws.loadedTileEntityList;
+                    Iterator iteratorTE = loadedTileEntities.iterator();
+                    while (iteratorTE.hasNext()) {
+                        TileEntity te = (TileEntity) iteratorTE.next();
+                        String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
+                        if (entitiesMap.get(key) != null) {
+                            entitiesMap.put(key, entitiesMap.get(key) + 1);
+                        } else {
+                            entitiesMap.put(key, 1);
+                        }
+                    }
+                }
+
+                for (Map.Entry e : entitiesMap.entrySet()) {
+                    if ((Integer) e.getValue() > 5) {
+                        sender.addChatMessage(new ChatComponentTranslation((String) e.getKey()));
+                    }
+                }
+
+                sender.addChatMessage(new ChatComponentTranslation("-------------------"));
+
+                return;
+            }
         }
     }
 
