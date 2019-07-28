@@ -7,10 +7,17 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.common.config.Configuration;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 
 @Mod (modid = "optiserver", name = "Ordinary OptiServer", version = "0.1", acceptableRemoteVersions = "*")
 
-public class Main {
+public class OptiServer {
+
+	public static Map<Date, Double> tpsStatsMap =  new HashMap<Date, Double>();
+	public static Map<Date, Double> memoryStatsMap =  new HashMap<Date, Double>();
 
 	public static WorldEventHandler worldEventHandler = new WorldEventHandler();
 	

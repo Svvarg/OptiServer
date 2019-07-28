@@ -18,6 +18,7 @@ import net.minecraft.tileentity.TileEntityHopper;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
@@ -54,7 +55,7 @@ public class OptiServerCommands extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender var1)
     {
-        return "/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding>";
+        return "/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding/tpsstat/memstat>";
     }
 
     @Override
@@ -69,7 +70,7 @@ public class OptiServerCommands extends CommandBase
 
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding>"));
+                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding/tpsstat/memstat>"));
                 return;
             }
             if (argString[0].equals("tps")) {
@@ -146,7 +147,7 @@ public class OptiServerCommands extends CommandBase
                 for (WorldServer ws : MinecraftServer.getServer().worldServers) {
                     int dimensionId = ws.provider.dimensionId;
                     if (dimensionId == 0) {
-                        Main.worldEventHandler.sheduleClean(ws);
+                        OptiServer.worldEventHandler.sheduleClean();
                     }
                 }
                 return;
@@ -359,6 +360,73 @@ public class OptiServerCommands extends CommandBase
 
                 return;
             }
+
+            if (argString[0].equals("tpsstat")) {
+
+                int count = 12;
+                if (argString.length > 1) {
+                    count = Integer.parseInt(argString[1]);
+                }
+
+                for (int percent = 100; percent > 0; percent -= 20) {
+                    String message = getPercentMessage(OptiServer.tpsStatsMap, percent, count, 20F);
+                    sender.addChatMessage(new ChatComponentTranslation(message));
+                }
+
+                String stringMessage = getLineString(OptiServer.tpsStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(stringMessage));
+
+                String tpsMessage = "|";
+                for (Date date : OptiServer.tpsStatsMap.keySet()) {
+                    int tps = OptiServer.tpsStatsMap.get(date).intValue();
+                    tpsMessage += (getTwoSymbolsNumber(tps) + "|");
+                }
+                sender.addChatMessage(new ChatComponentTranslation(tpsMessage));
+
+                sender.addChatMessage(new ChatComponentTranslation(stringMessage));
+
+                String hours = getHoursMessage(OptiServer.tpsStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(hours));
+
+                String minutes = getMinutesMessage(OptiServer.tpsStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(minutes));
+
+                return;
+            }
+
+            if (argString[0].equals("memstat")) {
+
+                int count = 12;
+                if (argString.length > 1) {
+                    count = Integer.parseInt(argString[1]);
+                }
+
+                for (int percent = 100; percent > 0; percent -= 20) {
+                    String message = getPercentMessage(OptiServer.memoryStatsMap, percent, count, OptiServerUtils.getMaxMemoryMB());
+                    sender.addChatMessage(new ChatComponentTranslation(message));
+                }
+
+                String stringMessage = getLineString(OptiServer.memoryStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(stringMessage));
+
+                String memoryMessage = "|";
+                for (Date date : OptiServer.memoryStatsMap.keySet()) {
+                    double memory = OptiServer.memoryStatsMap.get(date);
+                    int memoryPercent = ((Double)(100F / OptiServerUtils.getMaxMemoryMB() * memory)).intValue();
+                    memoryMessage += (getTwoSymbolsNumber(memoryPercent) + "|");
+                }
+                sender.addChatMessage(new ChatComponentTranslation(memoryMessage));
+
+                sender.addChatMessage(new ChatComponentTranslation(stringMessage));
+
+                String hours = getHoursMessage(OptiServer.memoryStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(hours));
+
+                String minutes = getMinutesMessage(OptiServer.memoryStatsMap, count);
+                sender.addChatMessage(new ChatComponentTranslation(minutes));
+
+                return;
+            }
         }
     }
 
@@ -378,5 +446,94 @@ public class OptiServerCommands extends CommandBase
     public boolean isUsernameIndex(String[] var1, int var2)
     {
         return false;
+    }
+
+    private String getPercentMessage(Map<Date, Double> map, int percent, int count, double maxValue) {
+        int counter = 0;
+
+        String message = "|";
+        for (Date date : map.keySet()) {
+            double value = map.get(date);
+
+            double valuePercent =  100F / maxValue * value;
+
+            if (valuePercent >= 75) {
+                message += EnumChatFormatting.GREEN;
+            } else if (valuePercent >= 50) {
+                message += EnumChatFormatting.YELLOW;
+            } else if (valuePercent >= 25) {
+                message += EnumChatFormatting.RED;
+            } else {
+                message += EnumChatFormatting.DARK_RED;
+            }
+
+            if (valuePercent >= percent) {
+                message += "##";
+            } else if (valuePercent >= (percent - 10)) {
+                message += "#" + EnumChatFormatting.DARK_GRAY + "#";
+            } else {
+                message += EnumChatFormatting.DARK_GRAY + "##";
+            }
+
+            message += EnumChatFormatting.WHITE;
+            message += "|";
+
+            counter++;
+            if (counter >= count) {
+                break;
+            }
+        }
+        return message;
+    }
+
+    private String getLineString(Map<Date, Double> map, int count) {
+        int counter = 0;
+
+        String message = "|";
+        for (Object key : map.keySet()) {
+            message += "--|";
+
+            counter++;
+            if (counter >= count) {
+                break;
+            }
+        }
+        return message;
+    }
+
+    private String getMinutesMessage(Map<Date, Double> map, int count) {
+        int counter = 0;
+
+        String message = "|";
+        for (Date key : map.keySet()) {
+            int minutes = key.getMinutes();
+            message += (getTwoSymbolsNumber(minutes) + "|");
+
+            counter++;
+            if (counter >= count) {
+                break;
+            }
+        }
+        return message;
+    }
+
+    private String getHoursMessage(Map<Date, Double> map, int count) {
+        int counter = 0;
+
+        String message = "|";
+        for (Date key : map.keySet()) {
+            int hours = key.getHours();
+            message += (getTwoSymbolsNumber(hours) + "|");
+
+            counter++;
+            if (counter >= count) {
+                break;
+            }
+        }
+        return message;
+    }
+
+    private String getTwoSymbolsNumber(int number) {
+        return number < 10 ? ("0" + number) : String.valueOf(number);
     }
 }

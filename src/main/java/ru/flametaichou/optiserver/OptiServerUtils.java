@@ -5,6 +5,13 @@ import net.minecraft.entity.IEntityOwnable;
 import net.minecraft.entity.IMerchant;
 import net.minecraft.entity.INpc;
 import net.minecraft.entity.passive.EntityAnimal;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.WorldServer;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class OptiServerUtils {
 
@@ -42,5 +49,19 @@ public class OptiServerUtils {
                 !(entityLiving instanceof IMerchant) &&
                 !entityLiving.isNoDespawnRequired() &&
                 !entityLiving.getClass().getName().contains("CustomNpc"));
+    }
+
+    public static Double getMinTps() {
+        double minTps = 20;
+        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+            int dimensionId = ws.provider.dimensionId;
+            double worldTickTime =  OptiServerUtils.mean(MinecraftServer.getServer().worldTickTimes.get(dimensionId)) * 1.0E-6D;
+            double worldTPS = Math.min(1000.0 / worldTickTime, 20);
+            if (worldTPS < minTps) {
+                minTps = worldTPS;
+            }
+            //averageTps += worldTPS;
+        }
+        return minTps;
     }
 }

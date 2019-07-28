@@ -12,6 +12,7 @@ public class ConfigHelper {
 
 	public static int memoryLimit;
 	public static int checkInterval;
+	public static int statsInterval;
 	public static int tpsLimit;
 	public static String beforeClearMessage;
 	public static String clearMessage;
@@ -21,7 +22,8 @@ public class ConfigHelper {
 		try {
 			config.load();
 			memoryLimit = config.get("Settings", "MemoryLimit", 3000).getInt(3000);
-			checkInterval = config.get("Settings", "CheckInterval", 500).getInt(500);
+			checkInterval = config.get("Settings", "CheckInterval", 2).getInt(2);
+			statsInterval = config.get("Settings", "StatsInterval", 5).getInt(5);
 			tpsLimit = config.get("Settings", "TpsLimit", 18).getInt(18);
 			beforeClearMessage = config.getString("Settings", "BeforeClearMessage", "" +
 					"Server overloaded! Memory clear after §b%s§f seconds!",
