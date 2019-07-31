@@ -64,4 +64,30 @@ public class OptiServerUtils {
         }
         return minTps;
     }
+
+    public static String getTwoSymbolsNumber(int number) {
+        return number < 10 ? ("0" + number) : String.valueOf(number);
+    }
+
+    public static String generateConsoleColorsString(String str) {
+        str = str.replace("§0", "\\033[0;30m");
+        str = str.replace("§1", "\\033[0;34m");
+        str = str.replace("§2", "\\033[0;32m");
+        str = str.replace("§3", "\\033[0;36m");
+        str = str.replace("§4", "\\033[0;31m");
+        str = str.replace("§5", "\\033[0;35m");
+        str = str.replace("§6", "\\033[0;33m");
+        str = str.replace("§7", "\\033[0;37m");
+        str = str.replace("§8", "\\033[1;30m");
+        str = str.replace("§9", "\\033[1;34m");
+        str = str.replace("§a", "\\033[1;32m");
+        str = str.replace("§b", "\\033[1;36m");
+        str = str.replace("§c", "\\033[1;31m");
+        str = str.replace("§d", "\\033[1;35m");
+        str = str.replace("§e", "\\033[1;33m");
+        //str = str.replace("§f", "\\033[1;37m");
+        str = str.replace("§f", "\\033[0m");
+        return str;
+    }
+
 }

@@ -2,6 +2,7 @@ package ru.flametaichou.optiserver;
 
 import java.util.*;
 
+import cpw.mods.fml.client.config.GuiConfigEntries;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.Entity;
@@ -16,9 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityHopper;
 import net.minecraft.tileentity.TileEntityMobSpawner;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.*;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
@@ -370,16 +369,32 @@ public class OptiServerCommands extends CommandBase
 
                 for (int percent = 100; percent > 0; percent -= 20) {
                     String message = getPercentMessage(OptiServer.tpsStatsMap, percent, count, 20F);
-                    sender.addChatMessage(new ChatComponentTranslation(message));
+                    if (!(sender instanceof EntityPlayer)) {
+                        message = OptiServerUtils.generateConsoleColorsString(message);
+                        System.out.println(message);
+                    } else {
+                        sender.addChatMessage(new ChatComponentTranslation(message));
+                    }
                 }
 
                 String stringMessage = getLineString(OptiServer.tpsStatsMap, count);
                 sender.addChatMessage(new ChatComponentTranslation(stringMessage));
 
                 String tpsMessage = "|";
+                int counter = 0;
                 for (Date date : OptiServer.tpsStatsMap.keySet()) {
+                    if (OptiServer.tpsStatsMap.keySet().size() > count) {
+                        if (counter < OptiServer.tpsStatsMap.keySet().size() - count) {
+                            break;
+                        }
+                    }
                     int tps = OptiServer.tpsStatsMap.get(date).intValue();
-                    tpsMessage += (getTwoSymbolsNumber(tps) + "|");
+                    tpsMessage += (OptiServerUtils.getTwoSymbolsNumber(tps) + "|");
+
+                    counter++;
+                    if (counter >= count) {
+                        break;
+                    }
                 }
                 sender.addChatMessage(new ChatComponentTranslation(tpsMessage));
 
@@ -400,20 +415,46 @@ public class OptiServerCommands extends CommandBase
                 if (argString.length > 1) {
                     count = Integer.parseInt(argString[1]);
                 }
-
                 for (int percent = 100; percent > 0; percent -= 20) {
                     String message = getPercentMessage(OptiServer.memoryStatsMap, percent, count, OptiServerUtils.getMaxMemoryMB());
-                    sender.addChatMessage(new ChatComponentTranslation(message));
+                    if (!(sender instanceof EntityPlayer)) {
+                        message = OptiServerUtils.generateConsoleColorsString(message);
+                        sender.addChatMessage(new ChatComponentStyle(message) {
+                            @Override
+                            public String getUnformattedTextForChat() {
+                                return null;
+                            }
+
+                            @Override
+                            public IChatComponent createCopy() {
+                                return null;
+                            }
+                        });
+
+                    } else {
+                        sender.addChatMessage(new ChatComponentTranslation(message));
+                    }
                 }
 
                 String stringMessage = getLineString(OptiServer.memoryStatsMap, count);
                 sender.addChatMessage(new ChatComponentTranslation(stringMessage));
 
                 String memoryMessage = "|";
+                int counter = 0;
                 for (Date date : OptiServer.memoryStatsMap.keySet()) {
+                    if (OptiServer.memoryStatsMap.keySet().size() > count) {
+                        if (counter < OptiServer.memoryStatsMap.keySet().size() - count) {
+                            break;
+                        }
+                    }
                     double memory = OptiServer.memoryStatsMap.get(date);
                     int memoryPercent = ((Double)(100F / OptiServerUtils.getMaxMemoryMB() * memory)).intValue();
-                    memoryMessage += (getTwoSymbolsNumber(memoryPercent) + "|");
+                    memoryMessage += (OptiServerUtils.getTwoSymbolsNumber(memoryPercent) + "|");
+
+                    counter++;
+                    if (counter >= count) {
+                        break;
+                    }
                 }
                 sender.addChatMessage(new ChatComponentTranslation(memoryMessage));
 
@@ -453,24 +494,32 @@ public class OptiServerCommands extends CommandBase
 
         String message = "|";
         for (Date date : map.keySet()) {
+            if (map.keySet().size() > count) {
+                if (counter < map.keySet().size() - count) {
+                    break;
+                }
+            }
+
             double value = map.get(date);
 
             double valuePercent =  100F / maxValue * value;
 
+
+            EnumChatFormatting color;
             if (valuePercent >= 75) {
-                message += EnumChatFormatting.GREEN;
+                color = EnumChatFormatting.GREEN;
             } else if (valuePercent >= 50) {
-                message += EnumChatFormatting.YELLOW;
+                color = EnumChatFormatting.YELLOW;
             } else if (valuePercent >= 25) {
-                message += EnumChatFormatting.RED;
+                color = EnumChatFormatting.RED;
             } else {
-                message += EnumChatFormatting.DARK_RED;
+                color = EnumChatFormatting.DARK_RED;
             }
 
             if (valuePercent >= percent) {
-                message += "##";
+                message += color + "##";
             } else if (valuePercent >= (percent - 10)) {
-                message += "#" + EnumChatFormatting.DARK_GRAY + "#";
+                message += color + "#" + EnumChatFormatting.DARK_GRAY + "#";
             } else {
                 message += EnumChatFormatting.DARK_GRAY + "##";
             }
@@ -491,6 +540,11 @@ public class OptiServerCommands extends CommandBase
 
         String message = "|";
         for (Object key : map.keySet()) {
+            if (map.keySet().size() > count) {
+                if (counter < map.keySet().size() - count) {
+                    break;
+                }
+            }
             message += "--|";
 
             counter++;
@@ -506,8 +560,13 @@ public class OptiServerCommands extends CommandBase
 
         String message = "|";
         for (Date key : map.keySet()) {
+            if (map.keySet().size() > count) {
+                if (counter < map.keySet().size() - count) {
+                    break;
+                }
+            }
             int minutes = key.getMinutes();
-            message += (getTwoSymbolsNumber(minutes) + "|");
+            message += (OptiServerUtils.getTwoSymbolsNumber(minutes) + "|");
 
             counter++;
             if (counter >= count) {
@@ -522,8 +581,13 @@ public class OptiServerCommands extends CommandBase
 
         String message = "|";
         for (Date key : map.keySet()) {
+            if (map.keySet().size() > count) {
+                if (counter < map.keySet().size() - count) {
+                    break;
+                }
+            }
             int hours = key.getHours();
-            message += (getTwoSymbolsNumber(hours) + "|");
+            message += (OptiServerUtils.getTwoSymbolsNumber(hours) + "|");
 
             counter++;
             if (counter >= count) {
@@ -531,9 +595,5 @@ public class OptiServerCommands extends CommandBase
             }
         }
         return message;
-    }
-
-    private String getTwoSymbolsNumber(int number) {
-        return number < 10 ? ("0" + number) : String.valueOf(number);
     }
 }

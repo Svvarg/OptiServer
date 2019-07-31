@@ -64,7 +64,7 @@ public class WorldEventHandler {
                 OptiServer.tpsStatsMap.put(now, tps);
                 OptiServer.memoryStatsMap.put(now, memory);
 
-                // Clean, sort
+                // Clean
                 List<Map<Date, Double>> maps = Arrays.asList(OptiServer.memoryStatsMap, OptiServer.tpsStatsMap);
                 for (Map<Date, Double> map : maps) {
                     if (map.size() > maxMapSize) {
@@ -76,8 +76,6 @@ public class WorldEventHandler {
                         }
                         map.remove(firstDate);
                     }
-
-                    map = new TreeMap<Date, Double>(map);
                 }
             }
 
