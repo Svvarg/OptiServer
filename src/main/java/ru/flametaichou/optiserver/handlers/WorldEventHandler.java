@@ -283,12 +283,14 @@ public class WorldEventHandler {
             while (iterator.hasNext()) {
                 Entity e = (Entity) iterator.next();
                 if (e.getCommandSenderName().equals(event.entity.getCommandSenderName())
+                        && e.getEntityId() != event.entity.getEntityId()
                         && approximatelyEquals(e.posX, event.entity.posX)
                         && approximatelyEquals(e.posY, event.entity.posY)
                         && approximatelyEquals(e.posZ, event.entity.posZ)) {
 
-                    Logger.log(String.format("Unloading breding entity on spawn: %s (%s)", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
-                    OptiServerUtils.unloadEntity(e);
+                    Logger.log(String.format("Unloading breding entity on spawn: %s (%s)", event.entity.getCommandSenderName(), Logger.getCoordinatesString(event.entity)));
+                    OptiServerUtils.unloadEntity(event.entity);
+                    break;
                 }
             }
         }
