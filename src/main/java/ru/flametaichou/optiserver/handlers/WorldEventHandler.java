@@ -1,21 +1,28 @@
-package ru.flametaichou.optiserver;
+package ru.flametaichou.optiserver.handlers;
 
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.Side;
 import net.minecraft.entity.*;
+import net.minecraft.entity.boss.EntityDragon;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.world.ChunkEvent;
+import ru.flametaichou.optiserver.util.ConfigHelper;
+import ru.flametaichou.optiserver.OptiServer;
+import ru.flametaichou.optiserver.util.Logger;
+import ru.flametaichou.optiserver.util.OptiServerUtils;
 
 import java.util.*;
 
@@ -41,11 +48,15 @@ public class WorldEventHandler {
     }
 
     public static void sheduleClean() {
-        MinecraftServer.getServer().getConfigurationManager().sendChatMsg(
-                new ChatComponentTranslation(ConfigHelper.beforeClearMessage, String.valueOf(secondsBeforeClean))
-        );
+        if (cleanTime == 0) {
+            MinecraftServer.getServer().getConfigurationManager().sendChatMsg(
+                    new ChatComponentTranslation(ConfigHelper.beforeClearMessage, String.valueOf(secondsBeforeClean))
+            );
 
-        cleanTime = MinecraftServer.getSystemTimeMillis() + (secondsBeforeClean * 1000);
+            cleanTime = MinecraftServer.getSystemTimeMillis() + (secondsBeforeClean * 1000);
+        } else {
+            Logger.warn("Clean is already scheduled!");
+        }
     }
 
     @SubscribeEvent
@@ -93,10 +104,10 @@ public class WorldEventHandler {
                 if (freeMem < ConfigHelper.memoryLimit || minTps < ConfigHelper.tpsLimit) {
 
                     if (freeMem < ConfigHelper.memoryLimit) {
-                        System.out.println("Memory limit! Free mem = " + freeMem);
+                        Logger.warn("Memory limit! Free mem = " + freeMem);
                     }
                     if (minTps < ConfigHelper.tpsLimit) {
-                        System.out.println("Low TPS! TPS = " + minTps);
+                        Logger.warn("Low TPS! TPS = " + minTps);
                     }
 
                     sheduleClean();
@@ -133,7 +144,7 @@ public class WorldEventHandler {
                                 entitiesForUnload.add(e);
                                 e.setDead();
                             } else {
-                                System.out.println("Skip entityItem " + entityItem);
+                                Logger.log("Skip entityItem " + entityItem);
                             }
                         } else if (e instanceof EntityFallingBlock || e instanceof IProjectile) {
                             entitiesForUnload.add(e);
@@ -144,7 +155,7 @@ public class WorldEventHandler {
                     unloadedEntities += entitiesForUnload.size();
                     ws.unloadEntities(entitiesForUnload);
                 }
-                System.out.println(String.format("Unloaded %s entities!", unloadedEntities));
+                Logger.log(String.format("Unloaded %s entities!", unloadedEntities));
 
                 //Remove breeding entities
                 removedBreedingEntities = 0;
@@ -154,21 +165,24 @@ public class WorldEventHandler {
                     List<Entity> loadedEntities = ws.loadedEntityList;
                     Iterator iterator = loadedEntities.iterator();
 
-                    List<Entity> entitiesForUnload = new ArrayList<Entity>();
+                    //List<Entity> entitiesForUnload = new ArrayList<Entity>();
 
                     while (iterator.hasNext()) {
                         Entity e = (Entity) iterator.next();
                         String key = e.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + e.posX + " " + e.posY + " " + e.posZ;
                         if (breedingEntitiesMap.get(key) != null) {
-                            entitiesForUnload.add(e);
-                            e.setDead();
+                            //entitiesForUnload.add(e);
+                            //iterator.remove();
+                            //e.setDead();
+                            Logger.log(String.format("Unloading breding entity: %s (%s)", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
+                            OptiServerUtils.unloadEntity(e);
                             removedBreedingEntities++;
                         } else {
                             breedingEntitiesMap.put(key, 1);
                         }
                     }
 
-                    ws.unloadEntities(entitiesForUnload);
+                    //ws.unloadEntities(entitiesForUnload);
 
                     List<Entity> loadedTileEntities = ws.loadedTileEntityList;
                     Iterator iteratorTE = loadedTileEntities.iterator();
@@ -176,6 +190,7 @@ public class WorldEventHandler {
                         TileEntity te = (TileEntity) iteratorTE.next();
                         String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
                         if (breedingEntitiesMap.get(key) != null) {
+                            Logger.log(String.format("Unloading breding entity: %s (%s)", te.getClass().getSimpleName(), Logger.getCoordinatesString(te)));
                             iteratorTE.remove();
                             removedBreedingEntities++;
                         } else {
@@ -183,7 +198,7 @@ public class WorldEventHandler {
                         }
                     }
                 }
-                System.out.println(String.format("Unloaded %s breding entities!", removedBreedingEntities));
+                Logger.log(String.format("Unloaded %s breding entities!", removedBreedingEntities));
 
                 // Unload Chunks
                 loadedChunks = 0;
@@ -231,10 +246,10 @@ public class WorldEventHandler {
                     afterChunksCount += ws.theChunkProviderServer.loadedChunks.size();
                 }
 
-                System.out.println(String.format("Unloaded %s chunks!", loadedChunks - afterChunksCount));
+                Logger.log(String.format("Unloaded %s chunks!", loadedChunks - afterChunksCount));
 
                 long usedMemAfterClean = OptiServerUtils.getUsedMemMB();
-                System.out.println(String.format("Memory clean profit = %s MB!", lastUsedMem - usedMemAfterClean));
+                Logger.log(String.format("Memory clean profit = %s MB!", lastUsedMem - usedMemAfterClean));
 
                 MinecraftServer.getServer().getConfigurationManager().sendChatMsg(
                         new ChatComponentTranslation(
@@ -246,5 +261,40 @@ public class WorldEventHandler {
                 );
             }
         }
+    }
+
+    @SubscribeEvent(priority = EventPriority.NORMAL)
+    public void onEntitySpawn(EntityJoinWorldEvent event) {
+        int radius = 1;
+        List nearestEntities = event.entity.worldObj.getEntitiesWithinAABB(
+                event.entity.getClass(),
+                AxisAlignedBB.getBoundingBox(
+                        event.entity.posX-radius,
+                        event.entity.posY-radius,
+                        event.entity.posZ-radius,
+                        (event.entity.posX + radius),
+                        (event.entity.posY + radius),
+                        (event.entity.posZ + radius)
+                )
+        );
+
+        if (!nearestEntities.isEmpty()) {
+            Iterator iterator = nearestEntities.iterator();
+            while (iterator.hasNext()) {
+                Entity e = (Entity) iterator.next();
+                if (e.getCommandSenderName().equals(event.entity.getCommandSenderName())
+                        && approximatelyEquals(e.posX, event.entity.posX)
+                        && approximatelyEquals(e.posY, event.entity.posY)
+                        && approximatelyEquals(e.posZ, event.entity.posZ)) {
+
+                    Logger.log(String.format("Unloading breding entity on spawn: %s (%s)", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
+                    OptiServerUtils.unloadEntity(e);
+                }
+            }
+        }
+    }
+
+    private static boolean approximatelyEquals(double d1, double d2) {
+        return Math.abs(d1 - d2) < 0.01;
     }
 }

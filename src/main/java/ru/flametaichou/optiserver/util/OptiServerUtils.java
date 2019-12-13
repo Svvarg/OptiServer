@@ -1,17 +1,11 @@
-package ru.flametaichou.optiserver;
+package ru.flametaichou.optiserver.util;
 
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.IEntityOwnable;
-import net.minecraft.entity.IMerchant;
-import net.minecraft.entity.INpc;
+import net.minecraft.entity.*;
 import net.minecraft.entity.passive.EntityAnimal;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class OptiServerUtils {
 
@@ -88,6 +82,32 @@ public class OptiServerUtils {
         //str = str.replace("§f", "\\033[1;37m");
         str = str.replace("§f", "\\033[0m");
         return str;
+    }
+
+    private static void makeCustomNpcDespawnable(Entity entity) {
+        NBTTagCompound data = new NBTTagCompound();
+        entity.writeToNBT(data);
+        data.setInteger("SpawnCycle", 3);
+        entity.readFromNBT(data);
+    }
+
+    public static void unloadEntity(Entity entity) {
+        if (entity.getClass().getName().toLowerCase().contains("custom")) {
+            makeCustomNpcDespawnable(entity);
+        }
+        entity.setDead();
+
+        WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
+        worldManager.onEntityDestroy(entity);
+
+        //entity.worldObj.removeEntity(entity);
+        //entity.worldObj.onEntityRemoved(entity);
+        //entity.worldObj.unloadEntities(Arrays.asList(entity));
+
+        //WorldServer worldServer = (WorldServer) entity.worldObj;
+        //worldServer.getEntityTracker().removeEntityFromAllTrackingPlayers(entity);
+        //WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
+        //worldManager.onEntityDestroy(entity);
     }
 
 }

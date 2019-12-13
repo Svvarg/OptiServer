@@ -1,8 +1,7 @@
-package ru.flametaichou.optiserver;
+package ru.flametaichou.optiserver.handlers;
 
 import java.util.*;
 
-import cpw.mods.fml.client.config.GuiConfigEntries;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.Entity;
@@ -21,6 +20,9 @@ import net.minecraft.util.*;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
+import ru.flametaichou.optiserver.util.ConfigHelper;
+import ru.flametaichou.optiserver.OptiServer;
+import ru.flametaichou.optiserver.util.OptiServerUtils;
 
 public class OptiServerCommands extends CommandBase
 {
@@ -382,10 +384,12 @@ public class OptiServerCommands extends CommandBase
 
                 String tpsMessage = "|";
                 int counter = 0;
+                int missCounter = 0;
                 for (Date date : OptiServer.tpsStatsMap.keySet()) {
                     if (OptiServer.tpsStatsMap.keySet().size() > count) {
-                        if (counter < OptiServer.tpsStatsMap.keySet().size() - count) {
-                            break;
+                        if (missCounter < OptiServer.tpsStatsMap.keySet().size() - count) {
+                            missCounter++;
+                            continue;
                         }
                     }
                     int tps = OptiServer.tpsStatsMap.get(date).intValue();
@@ -411,6 +415,7 @@ public class OptiServerCommands extends CommandBase
 
             if (argString[0].equals("memstat")) {
 
+                System.out.println(OptiServer.memoryStatsMap.size());
                 int count = 12;
                 if (argString.length > 1) {
                     count = Integer.parseInt(argString[1]);
@@ -419,18 +424,7 @@ public class OptiServerCommands extends CommandBase
                     String message = getPercentMessage(OptiServer.memoryStatsMap, percent, count, OptiServerUtils.getMaxMemoryMB());
                     if (!(sender instanceof EntityPlayer)) {
                         message = OptiServerUtils.generateConsoleColorsString(message);
-                        sender.addChatMessage(new ChatComponentStyle(message) {
-                            @Override
-                            public String getUnformattedTextForChat() {
-                                return null;
-                            }
-
-                            @Override
-                            public IChatComponent createCopy() {
-                                return null;
-                            }
-                        });
-
+                        sender.addChatMessage(new ChatComponentText(message));
                     } else {
                         sender.addChatMessage(new ChatComponentTranslation(message));
                     }
@@ -441,10 +435,12 @@ public class OptiServerCommands extends CommandBase
 
                 String memoryMessage = "|";
                 int counter = 0;
+                int missCounter = 0;
                 for (Date date : OptiServer.memoryStatsMap.keySet()) {
                     if (OptiServer.memoryStatsMap.keySet().size() > count) {
-                        if (counter < OptiServer.memoryStatsMap.keySet().size() - count) {
-                            break;
+                        if (missCounter < OptiServer.memoryStatsMap.keySet().size() - count) {
+                            missCounter++;
+                            continue;
                         }
                     }
                     double memory = OptiServer.memoryStatsMap.get(date);
@@ -491,12 +487,14 @@ public class OptiServerCommands extends CommandBase
 
     private String getPercentMessage(Map<Date, Double> map, int percent, int count, double maxValue) {
         int counter = 0;
+        int missCounter = 0;
 
         String message = "|";
         for (Date date : map.keySet()) {
             if (map.keySet().size() > count) {
-                if (counter < map.keySet().size() - count) {
-                    break;
+                if (missCounter < map.keySet().size() - count) {
+                    missCounter++;
+                    continue;
                 }
             }
 
@@ -537,12 +535,14 @@ public class OptiServerCommands extends CommandBase
 
     private String getLineString(Map<Date, Double> map, int count) {
         int counter = 0;
+        int missCounter = 0;
 
         String message = "|";
         for (Object key : map.keySet()) {
             if (map.keySet().size() > count) {
-                if (counter < map.keySet().size() - count) {
-                    break;
+                if (missCounter < map.keySet().size() - count) {
+                    missCounter++;
+                    continue;
                 }
             }
             message += "--|";
@@ -557,12 +557,14 @@ public class OptiServerCommands extends CommandBase
 
     private String getMinutesMessage(Map<Date, Double> map, int count) {
         int counter = 0;
+        int missCounter = 0;
 
         String message = "|";
         for (Date key : map.keySet()) {
             if (map.keySet().size() > count) {
-                if (counter < map.keySet().size() - count) {
-                    break;
+                if (missCounter < map.keySet().size() - count) {
+                    missCounter++;
+                    continue;
                 }
             }
             int minutes = key.getMinutes();
@@ -578,12 +580,14 @@ public class OptiServerCommands extends CommandBase
 
     private String getHoursMessage(Map<Date, Double> map, int count) {
         int counter = 0;
+        int missCounter = 0;
 
         String message = "|";
         for (Date key : map.keySet()) {
             if (map.keySet().size() > count) {
-                if (counter < map.keySet().size() - count) {
-                    break;
+                if (missCounter < map.keySet().size() - count) {
+                    missCounter++;
+                    continue;
                 }
             }
             int hours = key.getHours();

@@ -1,4 +1,4 @@
-package ru.flametaichou.optiserver;
+package ru.flametaichou.optiserver.util;
 
 import net.minecraftforge.common.config.Configuration;
 
@@ -17,6 +17,7 @@ public class ConfigHelper {
 	public static String beforeClearMessage;
 	public static String clearMessage;
 	public static List<String> itemBlacklist;
+	public static boolean debugMode = false;
 	
 	public static void setupConfig(Configuration config) {
 		try {
@@ -35,7 +36,7 @@ public class ConfigHelper {
 			itemBlacklist = Arrays.asList(config.getStringList("Settings", "ItemBlacklist", new String[]{"264"}, "IDs of items that should not be deleted."));
 			
 		} catch(Exception e) {
-			System.out.println("A severe error has occured when attempting to load the config file for this mod!");
+			Logger.error("A severe error has occured when attempting to load the config file for this mod!");
 		} finally {
 			if(config.hasChanged()) {
 				config.save();
