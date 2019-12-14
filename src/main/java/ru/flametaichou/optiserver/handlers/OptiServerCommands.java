@@ -372,7 +372,7 @@ public class OptiServerCommands extends CommandBase
                 for (int percent = 100; percent > 0; percent -= 20) {
                     String message = getPercentMessage(OptiServer.tpsStatsMap, percent, count, 20F);
                     if (!(sender instanceof EntityPlayer)) {
-                        message = OptiServerUtils.generateConsoleColorsString(message);
+                        message = OptiServerUtils.reformatMessageForConsole(message);
                         System.out.println(message);
                     } else {
                         sender.addChatMessage(new ChatComponentTranslation(message));
@@ -415,7 +415,6 @@ public class OptiServerCommands extends CommandBase
 
             if (argString[0].equals("memstat")) {
 
-                System.out.println(OptiServer.memoryStatsMap.size());
                 int count = 12;
                 if (argString.length > 1) {
                     count = Integer.parseInt(argString[1]);
@@ -423,7 +422,7 @@ public class OptiServerCommands extends CommandBase
                 for (int percent = 100; percent > 0; percent -= 20) {
                     String message = getPercentMessage(OptiServer.memoryStatsMap, percent, count, OptiServerUtils.getMaxMemoryMB());
                     if (!(sender instanceof EntityPlayer)) {
-                        message = OptiServerUtils.generateConsoleColorsString(message);
+                        message = OptiServerUtils.reformatMessageForConsole(message);
                         sender.addChatMessage(new ChatComponentText(message));
                     } else {
                         sender.addChatMessage(new ChatComponentTranslation(message));

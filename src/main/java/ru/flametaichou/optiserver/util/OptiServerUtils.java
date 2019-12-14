@@ -4,6 +4,7 @@ import net.minecraft.entity.*;
 import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
 
@@ -81,6 +82,40 @@ public class OptiServerUtils {
         str = str.replace("§e", "\\033[1;33m");
         //str = str.replace("§f", "\\033[1;37m");
         str = str.replace("§f", "\\033[0m");
+
+        return str;
+    }
+
+    public static String reformatMessageForConsole(String str) {
+        str = str.replace(EnumChatFormatting.GREEN + "##", "##");
+        str = str.replace(EnumChatFormatting.YELLOW + "##", "##");
+        str = str.replace(EnumChatFormatting.RED + "##", "##");
+        str = str.replace(EnumChatFormatting.DARK_RED + "##", "##");
+        str = str.replace(EnumChatFormatting.DARK_GRAY + "##", "  ");
+
+        str = str.replace(EnumChatFormatting.GREEN + "#", "#");
+        str = str.replace(EnumChatFormatting.YELLOW + "#", "#");
+        str = str.replace(EnumChatFormatting.RED + "#", "#");
+        str = str.replace(EnumChatFormatting.DARK_RED + "#", "#");
+        str = str.replace(EnumChatFormatting.DARK_GRAY + "#", " ");
+
+        str = str.replace("§0", "");
+        str = str.replace("§1", "");
+        str = str.replace("§2", "");
+        str = str.replace("§3", "");
+        str = str.replace("§4", "");
+        str = str.replace("§5", "");
+        str = str.replace("§6", "");
+        str = str.replace("§7", "");
+        str = str.replace("§8", "");
+        str = str.replace("§9", "");
+        str = str.replace("§a", "");
+        str = str.replace("§b", "");
+        str = str.replace("§c", "");
+        str = str.replace("§d", "");
+        str = str.replace("§e", "");
+        str = str.replace("§f", "");
+
         return str;
     }
 
