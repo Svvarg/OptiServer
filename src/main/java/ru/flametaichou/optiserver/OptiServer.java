@@ -5,7 +5,9 @@ import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
+import ru.flametaichou.optiserver.handlers.EntitySpawnHandler;
 import ru.flametaichou.optiserver.handlers.OptiServerCommands;
 import ru.flametaichou.optiserver.handlers.WorldEventHandler;
 import ru.flametaichou.optiserver.util.ConfigHelper;
@@ -27,6 +29,7 @@ public class OptiServer {
 	@EventHandler
 	public void initialize(FMLServerStartingEvent event)
 	{
+		MinecraftForge.EVENT_BUS.register(new EntitySpawnHandler());
 		FMLCommonHandler.instance().bus().register(worldEventHandler);
         event.registerServerCommand(new OptiServerCommands());
 	}

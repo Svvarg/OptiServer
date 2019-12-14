@@ -1,23 +1,21 @@
 package ru.flametaichou.optiserver.handlers;
 
-import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.Side;
-import net.minecraft.entity.*;
-import net.minecraft.entity.boss.EntityDragon;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.IProjectile;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.world.ChunkEvent;
 import ru.flametaichou.optiserver.util.ConfigHelper;
 import ru.flametaichou.optiserver.OptiServer;
@@ -42,10 +40,12 @@ public class WorldEventHandler {
 
     private static int maxMapSize = 144;
 
+    /*
     @SubscribeEvent(priority = EventPriority.LOW)
     public void onWorldTick(TickEvent.WorldTickEvent event) {
 
     }
+    */
 
     public static void sheduleClean() {
         if (cleanTime == 0) {
@@ -261,42 +261,5 @@ public class WorldEventHandler {
                 );
             }
         }
-    }
-
-    @SubscribeEvent(priority = EventPriority.NORMAL)
-    public void onEntitySpawn(EntityJoinWorldEvent event) {
-        int radius = 1;
-        List nearestEntities = event.entity.worldObj.getEntitiesWithinAABB(
-                event.entity.getClass(),
-                AxisAlignedBB.getBoundingBox(
-                        event.entity.posX-radius,
-                        event.entity.posY-radius,
-                        event.entity.posZ-radius,
-                        (event.entity.posX + radius),
-                        (event.entity.posY + radius),
-                        (event.entity.posZ + radius)
-                )
-        );
-
-        if (!nearestEntities.isEmpty()) {
-            Iterator iterator = nearestEntities.iterator();
-            while (iterator.hasNext()) {
-                Entity e = (Entity) iterator.next();
-                if (e.getCommandSenderName().equals(event.entity.getCommandSenderName())
-                        && e.getEntityId() != event.entity.getEntityId()
-                        && approximatelyEquals(e.posX, event.entity.posX)
-                        && approximatelyEquals(e.posY, event.entity.posY)
-                        && approximatelyEquals(e.posZ, event.entity.posZ)) {
-
-                    Logger.log(String.format("Unloading breding entity on spawn: %s (%s)", event.entity.getCommandSenderName(), Logger.getCoordinatesString(event.entity)));
-                    OptiServerUtils.unloadEntity(event.entity);
-                    break;
-                }
-            }
-        }
-    }
-
-    private static boolean approximatelyEquals(double d1, double d2) {
-        return Math.abs(d1 - d2) < 0.01;
     }
 }

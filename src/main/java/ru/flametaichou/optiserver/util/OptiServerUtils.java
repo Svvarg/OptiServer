@@ -110,4 +110,8 @@ public class OptiServerUtils {
         //worldManager.onEntityDestroy(entity);
     }
 
+    public static boolean approximatelyEquals(double d1, double d2) {
+        return Math.abs(d1 - d2) < 0.001;
+    }
+
 }
