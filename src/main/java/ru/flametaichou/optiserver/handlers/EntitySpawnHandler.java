@@ -3,18 +3,24 @@ package ru.flametaichou.optiserver.handlers;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import ru.flametaichou.optiserver.util.Logger;
 import ru.flametaichou.optiserver.util.OptiServerUtils;
 
-import java.util.Iterator;
 import java.util.List;
 
 public class EntitySpawnHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onEntitySpawn(EntityJoinWorldEvent event) {
+
+        if (event.entity instanceof EntityItem || event.entity instanceof EntityXPOrb) {
+            return;
+        }
+
         int radius = 1;
         List nearestEntities = event.entity.worldObj.getEntitiesWithinAABB(
                 event.entity.getClass(),
