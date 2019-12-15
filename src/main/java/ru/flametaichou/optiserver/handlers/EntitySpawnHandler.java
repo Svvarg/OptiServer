@@ -3,6 +3,7 @@ package ru.flametaichou.optiserver.handlers;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.IProjectile;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.util.AxisAlignedBB;
@@ -17,7 +18,7 @@ public class EntitySpawnHandler {
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onEntitySpawn(EntityJoinWorldEvent event) {
 
-        if (event.entity instanceof EntityItem || event.entity instanceof EntityXPOrb) {
+        if (event.entity instanceof EntityItem || event.entity instanceof EntityXPOrb || event.entity instanceof IProjectile) {
             return;
         }
 
