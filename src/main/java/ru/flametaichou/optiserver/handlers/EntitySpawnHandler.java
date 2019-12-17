@@ -6,6 +6,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.IProjectile;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.item.EntityXPOrb;
+import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import ru.flametaichou.optiserver.util.Logger;
@@ -18,7 +19,7 @@ public class EntitySpawnHandler {
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onEntitySpawn(EntityJoinWorldEvent event) {
 
-        if (event.entity instanceof EntityItem || event.entity instanceof EntityXPOrb || event.entity instanceof IProjectile) {
+        if (event.entity instanceof EntityItem || event.entity instanceof EntityXPOrb || event.entity instanceof IProjectile || (event.entity instanceof EntityAnimal && ((EntityAnimal) event.entity).isChild())) {
             return;
         }
 
