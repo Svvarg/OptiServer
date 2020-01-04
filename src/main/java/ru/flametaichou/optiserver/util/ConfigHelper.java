@@ -17,7 +17,7 @@ public class ConfigHelper {
 	public static String beforeClearMessage;
 	public static String clearMessage;
 	public static List<String> itemBlacklist;
-	public static boolean debugMode = false;
+	public static boolean debugMode = true;
 	
 	public static void setupConfig(Configuration config) {
 		try {

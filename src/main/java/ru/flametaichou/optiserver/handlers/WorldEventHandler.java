@@ -13,14 +13,20 @@ import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.world.MinecraftException;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.ChunkEvent;
+import net.minecraftforge.event.world.WorldEvent;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import ru.flametaichou.optiserver.util.ConfigHelper;
 import ru.flametaichou.optiserver.OptiServer;
 import ru.flametaichou.optiserver.util.Logger;
 import ru.flametaichou.optiserver.util.OptiServerUtils;
+import ru.flametaichou.optiserver.util.WorldChunkUnloader;
 
 import java.util.*;
 
@@ -33,7 +39,7 @@ public class WorldEventHandler {
 
     private static long lastUsedMem = 0;
     private static int unloadedEntities = 0;
-    private static int removedBreedingEntities = 0;
+    private static int removedDuplicatedEntities = 0;
     private static int loadedChunks = 0;
 
     private static long lastGetStatsTime = 0;
@@ -112,6 +118,12 @@ public class WorldEventHandler {
 
                     sheduleClean();
                 }
+
+                long duplicatesCount = findDuplicates().size();
+
+                if (duplicatesCount > 0) {
+                    Logger.warn("Found " + duplicatesCount + " duplicated entities!");
+                }
             }
 
             // Clean
@@ -158,7 +170,8 @@ public class WorldEventHandler {
                 Logger.log(String.format("Unloaded %s entities!", unloadedEntities));
 
                 //Remove breeding entities
-                removedBreedingEntities = 0;
+                /*
+                removedDuplicatedEntities = 0;
                 Map<String, Integer> breedingEntitiesMap = new HashMap<String, Integer>();
 
                 for (WorldServer ws : MinecraftServer.getServer().worldServers) {
@@ -174,9 +187,9 @@ public class WorldEventHandler {
                             //entitiesForUnload.add(e);
                             //iterator.remove();
                             //e.setDead();
-                            Logger.log(String.format("Unloading breding entity: %s (%s)", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
+                            Logger.log(String.format("Unloading duplicated entity: %s (%s)", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
                             OptiServerUtils.unloadEntity(e);
-                            removedBreedingEntities++;
+                            removedDuplicatedEntities++;
                         } else {
                             breedingEntitiesMap.put(key, 1);
                         }
@@ -190,20 +203,24 @@ public class WorldEventHandler {
                         TileEntity te = (TileEntity) iteratorTE.next();
                         String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
                         if (breedingEntitiesMap.get(key) != null) {
-                            Logger.log(String.format("Unloading breding entity: %s (%s)", te.getClass().getSimpleName(), Logger.getCoordinatesString(te)));
+                            Logger.log(String.format("Unloading duplicated entity: %s (%s)", te.getClass().getSimpleName(), Logger.getCoordinatesString(te)));
                             iteratorTE.remove();
-                            removedBreedingEntities++;
+                            removedDuplicatedEntities++;
                         } else {
                             breedingEntitiesMap.put(key, 1);
                         }
                     }
                 }
-                Logger.log(String.format("Unloaded %s breding entities!", removedBreedingEntities));
+                Logger.log(String.format("Unloaded %s breeding entities!", removedDuplicatedEntities));
+                */
 
                 // Unload Chunks
                 loadedChunks = 0;
                 for (WorldServer ws : MinecraftServer.getServer().worldServers) {
-                    loadedChunks += ws.theChunkProviderServer.loadedChunks.size();
+                    //loadedChunks += ws.theChunkProviderServer.loadedChunks.size();
+                    loadedChunks += ws.theChunkProviderServer.getLoadedChunkCount();
+
+                    /*
                     Iterator iterator = ws.theChunkProviderServer.loadedChunks.iterator();
 
                     while (iterator.hasNext()) {
@@ -223,11 +240,36 @@ public class WorldEventHandler {
 
                         if (needUnload) {
                             // ?
+                            //chunk.onChunkUnload();
                             MinecraftForge.EVENT_BUS.post(new ChunkEvent.Unload(chunk));
                             ws.theChunkProviderServer.unloadChunksIfNotNearSpawn(chunk.xPosition, chunk.zPosition);
                         }
                     }
+                    */
+
+                    WorldChunkUnloader worldChunkUnloader = new WorldChunkUnloader(ws);
+                    worldChunkUnloader.unloadChunks();
+
                     ws.theChunkProviderServer.unloadQueuedChunks();
+
+                    // Unload world
+                    if (!DimensionManager.shouldLoadSpawn(ws.provider.dimensionId)
+                            && ForgeChunkManager.getPersistentChunksFor(ws).isEmpty()
+                            && ws.theChunkProviderServer.getLoadedChunkCount() == 0
+                            && ws.playerEntities.isEmpty()
+                            && ws.loadedEntityList.isEmpty()
+                            && ws.loadedTileEntityList.isEmpty()) {
+                        try {
+                            ws.saveAllChunks(true, null);
+                        } catch (MinecraftException e) {
+                            Logger.error("Error on saving all chunks: " + ExceptionUtils.getRootCauseMessage(e));
+                        } finally {
+                            Logger.log("Unloading world DIM" + ws.provider.dimensionId);
+                            MinecraftForge.EVENT_BUS.post(new WorldEvent.Unload(ws));
+                            ws.flush();
+                            DimensionManager.setWorld(ws.provider.dimensionId, null);
+                        }
+                    }
                 }
 
                 // GC
@@ -243,7 +285,8 @@ public class WorldEventHandler {
 
                 int afterChunksCount = 0;
                 for (WorldServer ws : MinecraftServer.getServer().worldServers) {
-                    afterChunksCount += ws.theChunkProviderServer.loadedChunks.size();
+                    //afterChunksCount += ws.theChunkProviderServer.loadedChunks.size();
+                    afterChunksCount += ws.theChunkProviderServer.getLoadedChunkCount();
                 }
 
                 Logger.log(String.format("Unloaded %s chunks!", loadedChunks - afterChunksCount));
@@ -254,12 +297,51 @@ public class WorldEventHandler {
                 MinecraftServer.getServer().getConfigurationManager().sendChatMsg(
                         new ChatComponentTranslation(
                                 ConfigHelper.clearMessage,
-                                String.valueOf(unloadedEntities + removedBreedingEntities),
+                                String.valueOf(unloadedEntities + removedDuplicatedEntities),
                                 String.valueOf(loadedChunks - afterChunksCount),
                                 String.valueOf(lastUsedMem - usedMemAfterClean)
                         )
                 );
             }
         }
+    }
+
+    public static List<String> findDuplicates() {
+        List<String> resultList = new ArrayList<String>();
+        Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
+
+        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+            List<Entity> loadedEntities = new ArrayList<Entity>(ws.loadedEntityList);
+            Iterator iterator = loadedEntities.iterator();
+            while (iterator.hasNext()) {
+                Entity e = (Entity) iterator.next();
+                String key = e.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + e.posX + " " + e.posY + " " + e.posZ;
+                if (entitiesMap.get(key) != null) {
+                    entitiesMap.put(key, entitiesMap.get(key) + 1);
+                } else {
+                    entitiesMap.put(key, 1);
+                }
+            }
+
+            List<TileEntity> loadedTileEntities = new ArrayList<TileEntity>(ws.loadedTileEntityList);
+            Iterator iteratorTE = loadedTileEntities.iterator();
+            while (iteratorTE.hasNext()) {
+                TileEntity te = (TileEntity) iteratorTE.next();
+                String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
+                if (entitiesMap.get(key) != null) {
+                    entitiesMap.put(key, entitiesMap.get(key) + 1);
+                } else {
+                    entitiesMap.put(key, 1);
+                }
+            }
+        }
+
+        for (Map.Entry e : entitiesMap.entrySet()) {
+            if ((Integer) e.getValue() > 1) {
+                resultList.add((String)e.getKey());
+            }
+        }
+
+        return resultList;
     }
 }

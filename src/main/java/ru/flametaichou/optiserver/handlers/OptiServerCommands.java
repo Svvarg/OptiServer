@@ -13,7 +13,6 @@ import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityHopper;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.*;
@@ -56,7 +55,7 @@ public class OptiServerCommands extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender var1)
     {
-        return "/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding/tpsstat/memstat>";
+        return "/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/duplicates/tpsstat/memstat>";
     }
 
     @Override
@@ -71,7 +70,7 @@ public class OptiServerCommands extends CommandBase
 
         if (!world.isRemote) {
             if (argString.length == 0) {
-                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/breeding/tpsstat/memstat>"));
+                sender.addChatMessage(new ChatComponentText("/optiserver <tps/chunks/clear/mem/largest/status/entitydebug/duplicates/tpsstat/memstat>"));
                 return;
             }
             if (argString[0].equals("tps")) {
@@ -318,43 +317,15 @@ public class OptiServerCommands extends CommandBase
                 return;
             }
 
-            if (argString[0].equals("breeding")) {
+            if (argString[0].equals("duplicates")) {
 
                 sender.addChatMessage(new ChatComponentTranslation("-------------------"));
-                sender.addChatMessage(new ChatComponentTranslation("BREEDING:"));
+                sender.addChatMessage(new ChatComponentTranslation("DUPLICATES:"));
 
-                Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
+                List<String> duplicates = WorldEventHandler.findDuplicates();
 
-                for (WorldServer ws : MinecraftServer.getServer().worldServers) {
-                    List<Entity> loadedEntities = ws.loadedEntityList;
-                    Iterator iterator = loadedEntities.iterator();
-                    while (iterator.hasNext()) {
-                        Entity e = (Entity) iterator.next();
-                        String key = e.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + e.posX + " " + e.posY + " " + e.posZ;
-                        if (entitiesMap.get(key) != null) {
-                            entitiesMap.put(key, entitiesMap.get(key) + 1);
-                        } else {
-                            entitiesMap.put(key, 1);
-                        }
-                    }
-
-                    List<Entity> loadedTileEntities = ws.loadedTileEntityList;
-                    Iterator iteratorTE = loadedTileEntities.iterator();
-                    while (iteratorTE.hasNext()) {
-                        TileEntity te = (TileEntity) iteratorTE.next();
-                        String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
-                        if (entitiesMap.get(key) != null) {
-                            entitiesMap.put(key, entitiesMap.get(key) + 1);
-                        } else {
-                            entitiesMap.put(key, 1);
-                        }
-                    }
-                }
-
-                for (Map.Entry e : entitiesMap.entrySet()) {
-                    if ((Integer) e.getValue() > 5) {
-                        sender.addChatMessage(new ChatComponentTranslation((String) e.getKey()));
-                    }
+                for (String s : duplicates) {
+                    sender.addChatMessage(new ChatComponentTranslation(s));
                 }
 
                 sender.addChatMessage(new ChatComponentTranslation("-------------------"));

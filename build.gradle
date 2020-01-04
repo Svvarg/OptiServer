@@ -15,11 +15,15 @@ buildscript {
     }
 }
 
+apply plugin: 'java'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
 apply plugin: 'forge'
 
-version = "0.4"
+version = "0.2"
 group= "ru.flametaichou.optiserver" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "NerfSpawners"
+archivesBaseName = "OptiServer"
 
 minecraft {
     version = "1.7.10-10.13.4.1448-1.7.10"

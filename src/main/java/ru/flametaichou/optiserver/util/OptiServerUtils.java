@@ -4,9 +4,12 @@ import net.minecraft.entity.*;
 import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
+
+import java.util.List;
 
 public class OptiServerUtils {
 
@@ -127,14 +130,16 @@ public class OptiServerUtils {
     }
 
     public static void unloadEntity(Entity entity) {
-        if (entity.getClass().getName().toLowerCase().contains("custom")) {
+        if (entity.getClass().getSimpleName().equals("EntityCustomNpc")) {
             makeCustomNpcDespawnable(entity);
         }
         entity.setDead();
 
-        WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
-        worldManager.onEntityDestroy(entity);
+        if (!entity.worldObj.isRemote) {
+            WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
+            worldManager.onEntityDestroy(entity);
 
+        }
         //entity.worldObj.removeEntity(entity);
         //entity.worldObj.onEntityRemoved(entity);
         //entity.worldObj.unloadEntities(Arrays.asList(entity));
@@ -149,4 +154,34 @@ public class OptiServerUtils {
         return Math.abs(d1 - d2) < 0.001;
     }
 
+    public static boolean isDuplicate(Entity entity) {
+        int radius = 1;
+        List nearestEntities = entity.worldObj.getEntitiesWithinAABB(
+                entity.getClass(),
+                AxisAlignedBB.getBoundingBox(
+                        entity.posX-radius,
+                        entity.posY-radius,
+                        entity.posZ-radius,
+                        (entity.posX + radius),
+                        (entity.posY + radius),
+                        (entity.posZ + radius)
+                )
+        );
+
+        if (!nearestEntities.isEmpty()) {
+            for (Object nearestEntity : nearestEntities) {
+                Entity e = (Entity) nearestEntity;
+                if (e.getCommandSenderName().equals(entity.getCommandSenderName())
+                        && e.getEntityId() != entity.getEntityId()
+                        && OptiServerUtils.approximatelyEquals(e.posX, entity.posX)
+                        && OptiServerUtils.approximatelyEquals(e.posY, entity.posY)
+                        && OptiServerUtils.approximatelyEquals(e.posZ, entity.posZ)) {
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

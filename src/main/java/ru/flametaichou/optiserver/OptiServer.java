@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 
-@Mod (modid = "optiserver", name = "Ordinary OptiServer", version = "0.1", acceptableRemoteVersions = "*")
+@Mod (modid = "optiserver", name = "Ordinary OptiServer", version = "0.2", acceptableRemoteVersions = "*")
 
 public class OptiServer {
 
