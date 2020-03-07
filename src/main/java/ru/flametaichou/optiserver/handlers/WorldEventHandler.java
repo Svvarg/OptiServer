@@ -107,7 +107,10 @@ public class WorldEventHandler {
 
                 //averageTps = averageTps / MinecraftServer.getServer().worldServers.length;
 
-                if (freeMem < ConfigHelper.memoryLimit || minTps < ConfigHelper.tpsLimit) {
+                // Запускать чистку если найдено более 100 дублирующихся сущностей
+                long duplicatesCount = findDuplicates().size();
+
+                if (freeMem < ConfigHelper.memoryLimit || minTps < ConfigHelper.tpsLimit || duplicatesCount > 100) {
 
                     if (freeMem < ConfigHelper.memoryLimit) {
                         Logger.warn("Memory limit! Free mem = " + freeMem);
@@ -115,14 +118,11 @@ public class WorldEventHandler {
                     if (minTps < ConfigHelper.tpsLimit) {
                         Logger.warn("Low TPS! TPS = " + minTps);
                     }
+                    if (duplicatesCount > 100) {
+                        Logger.warn("Found " + duplicatesCount + " duplicated entities!");
+                    }
 
                     sheduleClean();
-                }
-
-                long duplicatesCount = findDuplicates().size();
-
-                if (duplicatesCount > 0) {
-                    Logger.warn("Found " + duplicatesCount + " duplicated entities!");
                 }
             }
 
@@ -306,9 +306,26 @@ public class WorldEventHandler {
         }
     }
 
+    // в os largest не попадают дублирующиеся сущности
     public static List<String> findDuplicates() {
         List<String> resultList = new ArrayList<String>();
         Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
+
+        /*
+        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+            int dimensionId = ws.provider.dimensionId;
+            for (Object obj : ws.theChunkProviderServer.loadedChunks) {
+                Chunk chunk = (Chunk) obj;
+                int entitiesCount = 0;
+                for (List l : chunk.entityLists) {
+                    for (Object o : l) {
+                        entitiesCount++;
+                    }
+                }
+                chunk.chunkTileEntityMap
+            }
+        }
+        */
 
         for (WorldServer ws : MinecraftServer.getServer().worldServers) {
             List<Entity> loadedEntities = new ArrayList<Entity>(ws.loadedEntityList);

@@ -9,6 +9,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class OptiServerUtils {
@@ -183,5 +184,37 @@ public class OptiServerUtils {
         }
 
         return false;
+    }
+
+    public static List<Entity> findDuplicates(Entity entity) {
+        List<Entity> duplicates = new ArrayList<Entity>();
+        int radius = 1;
+        List nearestEntities = entity.worldObj.getEntitiesWithinAABB(
+                entity.getClass(),
+                AxisAlignedBB.getBoundingBox(
+                        entity.posX-radius,
+                        entity.posY-radius,
+                        entity.posZ-radius,
+                        (entity.posX + radius),
+                        (entity.posY + radius),
+                        (entity.posZ + radius)
+                )
+        );
+
+        if (!nearestEntities.isEmpty()) {
+            for (Object nearestEntity : nearestEntities) {
+                Entity e = (Entity) nearestEntity;
+                if (e.getCommandSenderName().equals(entity.getCommandSenderName())
+                        && e.getEntityId() != entity.getEntityId()
+                        && OptiServerUtils.approximatelyEquals(e.posX, entity.posX)
+                        && OptiServerUtils.approximatelyEquals(e.posY, entity.posY)
+                        && OptiServerUtils.approximatelyEquals(e.posZ, entity.posZ)) {
+
+                    duplicates.add(e);
+                }
+            }
+        }
+
+        return duplicates;
     }
 }
