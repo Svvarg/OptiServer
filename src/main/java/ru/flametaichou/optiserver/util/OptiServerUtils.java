@@ -10,6 +10,8 @@ import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class OptiServerUtils {
@@ -201,11 +203,12 @@ public class OptiServerUtils {
                 )
         );
 
-        if (!nearestEntities.isEmpty()) {
+
+        if (!nearestEntities.isEmpty() && nearestEntities.size() > 1) {
             for (Object nearestEntity : nearestEntities) {
                 Entity e = (Entity) nearestEntity;
                 if (e.getCommandSenderName().equals(entity.getCommandSenderName())
-                        && e.getEntityId() != entity.getEntityId()
+                        //&& e.getEntityId() != entity.getEntityId()
                         && OptiServerUtils.approximatelyEquals(e.posX, entity.posX)
                         && OptiServerUtils.approximatelyEquals(e.posY, entity.posY)
                         && OptiServerUtils.approximatelyEquals(e.posZ, entity.posZ)) {
@@ -215,6 +218,19 @@ public class OptiServerUtils {
             }
         }
 
-        return duplicates;
+        if (duplicates.size() > 1) {
+            duplicates.sort(new Comparator<Entity>() {
+                @Override
+                public int compare(Entity entity1, Entity entity2) {
+                    return Integer.compare(entity1.ticksExisted, entity2.ticksExisted);
+                }
+            });
+
+            // Removing oldest entity
+            duplicates.remove(duplicates.size() - 1);
+            return duplicates;
+        } else {
+            return Collections.emptyList();
+        }
     }
 }

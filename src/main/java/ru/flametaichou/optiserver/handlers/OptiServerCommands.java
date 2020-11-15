@@ -209,6 +209,7 @@ public class OptiServerCommands extends CommandBase
                         }
                     }
 
+                    // TODO
                     for (Object obj : ws.loadedTileEntityList) {
                         if (obj instanceof TileEntityMobSpawner) {
                             activeMobSpawners++;

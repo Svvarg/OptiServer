@@ -1,6 +1,5 @@
 package ru.flametaichou.optiserver.handlers;
 
-import com.google.common.collect.Lists;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.entity.Entity;

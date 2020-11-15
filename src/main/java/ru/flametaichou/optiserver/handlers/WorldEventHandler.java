@@ -306,27 +306,13 @@ public class WorldEventHandler {
         }
     }
 
-    // в os largest не попадают дублирующиеся сущности
+    // TODO: в os largest не попадают дублирующиеся сущности. Почему?
     public static List<String> findDuplicates() {
         List<String> resultList = new ArrayList<String>();
         Map<String, Integer> entitiesMap = new HashMap<String, Integer>();
 
+        // по ws.loadedEntityList
         /*
-        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
-            int dimensionId = ws.provider.dimensionId;
-            for (Object obj : ws.theChunkProviderServer.loadedChunks) {
-                Chunk chunk = (Chunk) obj;
-                int entitiesCount = 0;
-                for (List l : chunk.entityLists) {
-                    for (Object o : l) {
-                        entitiesCount++;
-                    }
-                }
-                chunk.chunkTileEntityMap
-            }
-        }
-        */
-
         for (WorldServer ws : MinecraftServer.getServer().worldServers) {
             List<Entity> loadedEntities = new ArrayList<Entity>(ws.loadedEntityList);
             Iterator iterator = loadedEntities.iterator();
@@ -349,6 +335,39 @@ public class WorldEventHandler {
                     entitiesMap.put(key, entitiesMap.get(key) + 1);
                 } else {
                     entitiesMap.put(key, 1);
+                }
+            }
+        }
+        */
+
+        // по чанкам
+        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
+            for (Object obj : ws.theChunkProviderServer.loadedChunks) {
+                Chunk chunk = (Chunk) obj;
+
+                for (List l : chunk.entityLists) {
+                    for (Object o : l) {
+                        Entity e = (Entity) o;
+
+                        String key = e.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + e.posX + " " + e.posY + " " + e.posZ;
+                        if (entitiesMap.get(key) != null) {
+                            entitiesMap.put(key, entitiesMap.get(key) + 1);
+                        } else {
+                            entitiesMap.put(key, 1);
+                        }
+                    }
+                }
+
+
+                for (Object o : chunk.chunkTileEntityMap.values()) {
+                    TileEntity te = (TileEntity) o;
+
+                    String key = te.getClass().getSimpleName() + " DIM" + ws.provider.dimensionId + " " + te.xCoord + " " + te.yCoord + " " + te.zCoord;
+                    if (entitiesMap.get(key) != null) {
+                        entitiesMap.put(key, entitiesMap.get(key) + 1);
+                    } else {
+                        entitiesMap.put(key, 1);
+                    }
                 }
             }
         }
