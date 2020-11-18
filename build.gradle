@@ -24,7 +24,7 @@ targetCompatibility = 1.8
 
 apply plugin: 'forge'
 
-version = "0.2.1"
+version = "0.3"
 group= "ru.flametaichou.optiserver" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "OptiServer"
 

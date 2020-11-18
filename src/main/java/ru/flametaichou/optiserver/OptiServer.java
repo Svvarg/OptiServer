@@ -21,7 +21,7 @@ import javax.annotation.Nonnull;
 import static ru.flametaichou.optiserver.OptiServer.MODID;
 
 
-@Mod (modid = MODID, name = "Ordinary OptiServer", version = "0.2.1", acceptableRemoteVersions = "*")
+@Mod (modid = MODID, name = "Ordinary OptiServer", version = "0.3", acceptableRemoteVersions = "*")
 public class OptiServer {
         public static final String MODID = "optiserver";
         
