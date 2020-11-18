@@ -413,7 +413,7 @@ public class OptiServerUtils {
     public static List getEntityListForPosYAt(Chunk chunk, double posY) {
         if (chunk != null && chunk.entityLists != null) {
             int k = MathHelper.floor_double(posY / 16.0D);
-            if (k < chunk.entityLists.length) {
+            if (k >= 0 && k < chunk.entityLists.length) {
                 return chunk.entityLists[k];
             }
         }
