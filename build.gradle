@@ -24,12 +24,12 @@ targetCompatibility = 1.8
 
 apply plugin: 'forge'
 
-version = "0.2"
+version = "0.2.1"
 group= "ru.flametaichou.optiserver" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "OptiServer"
 
 minecraft {
-    version = "1.7.10-10.13.4.1448-1.7.10"
+    version = "1.7.10-10.13.4.1614-1.7.10"
     runDir = "eclipse"
 }
 
