@@ -55,7 +55,7 @@ dependencies {
     //compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
     //compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
     compile 'org.swarg.cmds:cmds4j:0.1'
-    compile 'org.swarg.common:alib:0.1' 
+    compile 'org.swarg.common:alib:0.2' 
     compile 'org.swarg.mcforge:mcfbackendlib:0.4:dev' 
     //compile 'org.swarg.mcforge:researchtool:0.3.2:dev' 
 
