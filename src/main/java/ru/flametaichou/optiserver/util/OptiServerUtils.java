@@ -9,27 +9,25 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldManager;
 import net.minecraft.world.WorldServer;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.lang.reflect.Field;
-import java.util.Iterator;
-import java.util.Vector;
-import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.item.Item;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.IntHashMap;
-import net.minecraft.util.LongHashMap;
-import net.minecraft.util.MathHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
-import static ru.flametaichou.optiserver.util.ConfigHelper.checkTileEntityDuplicates;
+import org.apache.logging.log4j.Level;
+
+import org.swarg.mcforge.util.XItem;
+import org.swarg.mcforge.util.XServer;
+import org.swarg.mcforge.util.XEntity;
+import static ru.flametaichou.optiserver.OptiServer.LOG;
+import static org.swarg.common.Strings.appendDouble;
+import static org.swarg.mcforge.util.XEntity.isCustomNpcCanBeUnloaded;
+import static org.swarg.mcforge.util.XEntity.isLootableBodyCanBeUnloaded;
+
+
 
 public class OptiServerUtils {
 
@@ -44,47 +42,95 @@ public class OptiServerUtils {
     public static long getUsedMemMB() {
         long freeMem = Runtime.getRuntime().maxMemory() - Runtime.getRuntime().totalMemory() + Runtime.getRuntime().freeMemory();
         long usedMem = Runtime.getRuntime().maxMemory() - freeMem;
-        return usedMem / 1000000;
+        return usedMem / 1048576;
     }
 
     public static long getFreeMemMB() {
         long freeMem = Runtime.getRuntime().maxMemory() - Runtime.getRuntime().totalMemory() + Runtime.getRuntime().freeMemory();
-        return freeMem / 1000000;
+        return freeMem / 1048576;
     }
 
     public static long getTotalMemoryMB() {
-        return Runtime.getRuntime().totalMemory() / 1000000;
+        return Runtime.getRuntime().totalMemory() / 1048576;
     }
 
     public static long getMaxMemoryMB() {
-        return Runtime.getRuntime().maxMemory() / 1000000;
+        return Runtime.getRuntime().maxMemory() / 1048576;
     }
 
+    /**
+     *
+     * @param entityLiving
+     * @return
+     */
     public static boolean isEntityLivingCanBeUnloaded(EntityLiving entityLiving) {
-        return ( !entityLiving.isNoDespawnRequired() &&
-                !(entityLiving instanceof IEntityOwnable) &&
-                !(entityLiving instanceof EntityAnimal) &&
-                !(entityLiving instanceof INpc) &&
-                !(entityLiving instanceof IMerchant) &&
-                !ConfigHelper.persistEntitiesList.contains(entityLiving.getClass()) //noppes.npcs.entity.EntityCustomNpc добавляется через конфиг, уст-ся по дефолту
-                //TODO у CustomNpc есть настройка естественное исчезновение...
+        return (
+                (!entityLiving.isNoDespawnRequired() &&
+                 !(entityLiving instanceof IEntityOwnable) &&
+                 !(entityLiving instanceof EntityAnimal) &&
+                 !(entityLiving instanceof INpc) &&
+                 !(entityLiving instanceof IMerchant)
+                 //&& !ConfigHelper.persistEntitiesList.contains(entityLiving.getClass())
+                )
+                //noppes.npcs.entity.EntityCustomNpc можно удалять те у которых снят респавн и стоит естественное исчезновение
+                || isCustomNpcCanBeUnloaded(entityLiving)  //??
+                //пустые трупы
+                || isLootableBodyCanBeUnloaded(entityLiving)
                 );
     }
-    
+
     /**
+     * Будет ли заданный класс entityLiving удалён при очистке
+     * Для запрета создания инстансов entityLiving существа в моменты времени
+     * когда ожидается(запланирована) очистка (всё равно будут удалены)
+     * Для PotentialSpawn - даже не пытаться спавнить мусор который будет удалён.
+     * Исключает КастомНПС трупы, спискок классов из конфига которые не удалять при очистке
+     * @param entityLivingClass
+     * @return
+     * TODO проверить на совместимость с тфк (животные и т.д)
+     */
+    public static boolean isEntityLivingClassCanBeUnloaded(Class entityLivingClass) {
+        //net.minecraft.entity.monster.EntityMob
+        return ( EntityLiving.class.isAssignableFrom(entityLivingClass) &&  //защита от провероки на возможность удаление очисткой не для EntityLiving
+
+                 //not persists
+                 !ConfigHelper.persistEntitiesList.contains(entityLivingClass) &&
+
+                 !(IEntityOwnable.class.isAssignableFrom(entityLivingClass)) &&
+                 !(EntityAnimal.class.isAssignableFrom(entityLivingClass)) &&
+                 !(INpc.class.isAssignableFrom(entityLivingClass)) &&
+                 !(IMerchant.class.isAssignableFrom(entityLivingClass)) &&
+                 //not CustomNPC
+                 !(XEntity.IS_CUSTOM_NPC_LOADED && XEntity.CL_NOPPES_EntityNPCInterface.isAssignableFrom(entityLivingClass)) &&
+                 //not Corps
+                 !(XEntity.IS_CYANO_LOOTABLE_BODY_LOADED && XEntity.CL_CYANO_ENTITY_LOOTABLE_BODY.isAssignableFrom(entityLivingClass))
+                 
+                );
+    }
+
+
+    /**
+     * Может ли существо быть удалено очисткой
      * Только проверка без каких либо действий
      * Выгружать может EntityLiving EntityItem IProjectile EntityFallingBlock
+     * По наблюдениям почти сразу после удаления существ идёт их спавн в пустующие
+     * чанки..
      * @param entity
      * @return
      */
     public static boolean isEntityCanBeUnloaded(Entity entity) {
-        boolean toClean = false;
-        if (entity instanceof net.minecraft.entity.item.EntityMinecart) {
-            entity=entity;
+        boolean cleanable = false;
+        Class entityClass = entity.getClass();
+
+        //список классов существ которые нельзя удалять
+        if ( ConfigHelper.persistEntitiesList.contains( entityClass ) ) {
+            cleanable = false;
         }
-        if (entity instanceof EntityLiving) {
+
+        else if (entity instanceof EntityLiving) {
             EntityLiving entityLiving = (EntityLiving) entity;
-            toClean = OptiServerUtils.isEntityLivingCanBeUnloaded(entityLiving);
+            //можно удалять: CustomNPC у которых стоит естественное исчезновение + выключен респавн; + пустые трупы
+            cleanable = OptiServerUtils.isEntityLivingCanBeUnloaded(entityLiving);
         }
         else if (entity instanceof EntityItem) {
             EntityItem entityItem = (EntityItem) entity;
@@ -92,22 +138,36 @@ public class OptiServerUtils {
             // Check Objects of Item //ids
             Item item = entityItem.getEntityItem().getItem();//String itemId = String.valueOf(Item.getIdFromItem(entityItem.getEntityItem().getItem()));
             if (!ConfigHelper.persistItemsList.contains(item)) { //if (!ConfigHelper.itemBlacklist.contains(itemId)) {
-                toClean = true;
+                cleanable = true;
             } else {
-                Logger.log("Skip entityItem " + entityItem);
+                LOG.logItem(Level.DEBUG, "An Undeletable Item [{}] is recognized and left in place", item, false);
             }
         }
+        //?? toplvl metall spears arrows bolts?
         else if (entity instanceof IProjectile) {
-            toClean = true;
+            cleanable = true;
         }
-        //todo fallig toplvl anvil....
+        //TFC-падающие блоки сюда не входят...
         else if (entity instanceof EntityFallingBlock) {
-            toClean = true;
+            cleanable = true;
+        } 
+        //пдающие блоки из ТФК extends Entity implements IEntityAdditionalSpawnData
+        //TODO falling toplvl anvil?...
+        else if (entityClass == XEntity.CL_TFC_ENTITY_FALLING_BLOCK) {
+            cleanable = true;
         }
-        return toClean;
+        //ZombieAwarenasess Scent неведимки притягивающие зомбарей
+        else if (entityClass == XEntity.CL_ZA_ENTITY_SCENT) {//XEntity.IS_ZOMBIE_AWARENESS_LOADED
+            cleanable = true;
+        }
+
+        return cleanable;
     }
     
-
+    /**
+     * Получить минимальный тпс по всем загруженым мирам
+     * @return
+     */
     public static Double getMinTps() {
         double minTps = 20;
         for (WorldServer ws : MinecraftServer.getServer().worldServers) {
@@ -181,32 +241,81 @@ public class OptiServerUtils {
         return str;
     }
 
-    private static void makeCustomNpcDespawnable(Entity entity) {
-        NBTTagCompound data = new NBTTagCompound();
-        entity.writeToNBT(data);
-        data.setInteger("SpawnCycle", 3);
-        entity.readFromNBT(data);
+    /**
+     * Данному классу существ разрешено спавниться по несколько штук в одних и
+     * тех же координатах (стаей Pack)
+     * Проверить может ли entity спавниться на координатах, на которых уже
+     * существует такого же типа entity
+     * Для блокировки дублирования при JoinEntityWorld и\или CheckSpawn
+     * @param entity
+     * @return
+     */
+    public static boolean isAllowedSwarmSpawn(Entity entity) {
+        return entity instanceof EntityItem ||
+               entity instanceof EntityXPOrb ||
+               entity instanceof IProjectile ||
+               (entity instanceof EntityAgeable && ((EntityAgeable) entity).isChild()) ||
+               ConfigHelper.allowedSwarmSpawnEntitiesList.contains( entity.getClass() );
     }
 
+//    public static boolean isAllowedSwarmSpawn(Class eClass) {
+//        return eClass != null && (
+//               EntityItem.class.isAssignableFrom(eClass) ||
+//               EntityXPOrb.class.isAssignableFrom(eClass) ||
+//               IProjectile.class.isAssignableFrom(eClass) ||
+//               EntityAgeable.class.isAssignableFrom(eClass) || //&& ((EntityAgeable) entity).isChild()) ||
+//               ConfigHelper.allowedSwarmSpawnEntitiesList.contains( eClass ));
+//    }
+
+
+//    //todo проверить возможно нужно использовать родителя
+//    @Deprecated
+//    public static boolean isCustomNpcEntity(Entity entity) {
+//        return entity != null && classCustomNpcEntity != null &&
+//               entity.getClass() == classCustomNpcEntity;
+//    }
+//
+//    /*Чтобы после смерти не появлялся*/
+//    @Deprecated
+//    public static void makeCustomNpcDespawnable(Entity entity) {
+//        NBTTagCompound data = new NBTTagCompound();
+//        entity.writeToNBT(data);
+//        data.setInteger("SpawnCycle", 3);
+//        entity.readFromNBT(data);
+//    }
+
+    /**
+     * Выгрузить существо из мира, чанков и всех worldAccesses
+     * ("удалить")
+     * Только для серверной стороны
+     * @param entity
+     */
     public static void unloadEntity(Entity entity) {
-        if (entity.getClass().getSimpleName().equals("EntityCustomNpc")) {
-            makeCustomNpcDespawnable(entity);
+        if (entity != null && !entity.worldObj.isRemote) {
+            
+            WorldServer ws = (WorldServer) entity.worldObj;
+            //для того чтобы существо не респавнилось после "удаления" ?? а вообще как оно может респавниться если оно удаяется из листа мира и чанка??
+            XEntity.makeCustomNpcDespawnable(entity);//сработает только для катом-нпс-существ
+            //"маркерует" существо в очередь на удаление
+            ws.removeEntity(entity); //entity.setDead(); / ridden / mount
+
+            //прямое удаление инстанса существа из мира и далее из листа чанка
+            ws.loadedEntityList.remove(entity);
+            int cx = entity.chunkCoordX;
+            int cz = entity.chunkCoordZ;
+            if (entity.addedToChunk && ws.theChunkProviderServer.chunkExists(cx, cz)) {
+                ws.getChunkFromChunkCoords(cx, cz).removeEntity(entity);
+            }
+            ws.onEntityRemoved(entity); // удаление существа из всех worldAccesses
+
+            //??удаление существа из очереди на удаление если оно вдруг там было
+            List unloadedEntityList = XServer.getUnloadedEntitiesList(ws);
+            if (unloadedEntityList != null) {
+                unloadedEntityList.remove(entity);
+            }
+            //TODO проверить как выгружается существо
+            //ws.getEntityTracker().removeEntityFromAllTrackingPlayers(entity);//это вроде как относится только к игрокам
         }
-        entity.setDead();
-
-        if (!entity.worldObj.isRemote) {
-            WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
-            worldManager.onEntityDestroy(entity);
-
-        }
-        //entity.worldObj.removeEntity(entity);
-        //entity.worldObj.onEntityRemoved(entity);
-        //entity.worldObj.unloadEntities(Arrays.asList(entity));
-
-        //WorldServer worldServer = (WorldServer) entity.worldObj;
-        //worldServer.getEntityTracker().removeEntityFromAllTrackingPlayers(entity);
-        //WorldManager worldManager = new WorldManager(MinecraftServer.getServer(), (WorldServer) entity.worldObj);
-        //worldManager.onEntityDestroy(entity);
     }
 
     public static boolean approximatelyEquals(double d1, double d2) {
@@ -291,639 +400,54 @@ public class OptiServerUtils {
 //        }
 //    }
     
-    /**
-     * Возможно это избыточный метод пока не нашел другого простого способа
-     * получения всех существ в чанке
-     * @param chunk
-     * @return
-     */
-    public static int getEntityCountAtChunk(Chunk chunk) {
-        if (chunk == null || chunk.entityLists == null) return 0;
-        int count = 0;
-        for (int i = 0; i < chunk.entityLists.length; i++) {
-            List list = chunk.entityLists[i];
-            if (list == null) continue;
-            count += list.size();
-        }
-        return count;
-    }
 
     public static StringBuilder appendEntityInfo(Entity e, boolean fullName, StringBuilder sb) {
-        if (e==null) return sb;
-        sb
-          .append("id: ").append(e.getEntityId())
+        if (e == null) return sb;
+        sb.append("id: ").append(e.getEntityId())
           .append(" (") .append(fullName ? e.getClass().getName() : e.getClass().getSimpleName()).append(')')          
           .append(" Age: ").append(e.ticksExisted)
           .append(" (");//Coords:
-        appendDouble(sb, e.posX, 2);
-        appendDouble(sb, e.posY, 2);
-        appendDouble(sb, e.posZ, 2);
+        appendDouble(sb, e.posX, 1).append(' ');//10.5
+        appendDouble(sb, e.posY, 1).append(' ');
+        appendDouble(sb, e.posZ, 1);
         sb.append(')');
         { /*DEBUG -->*/
             sb.append(" PES").append(e.preventEntitySpawning ? '+' : '-');
             if (e instanceof EntityItem) {
                 EntityItem entityItem = (EntityItem) e;
-                sb.append(" [").append( getItemInfo(entityItem.getEntityItem().getItem()) ).append(']');
+                sb.append(" [");
+                XItem.appendItemInfo(entityItem.getEntityItem().getItem(), true, sb);
+                sb.append(']');
             }
-            else if (e instanceof EntityLiving){
+            else if (e instanceof EntityLiving) {
                 boolean canDespawn = ((EntityLiving)e).isNoDespawnRequired();
                 sb.append(" D").append(canDespawn?'+':'-');
             }
         } /*<--DEBUG*/
 
-        boolean b = OptiServerUtils.isEntityCanBeUnloaded(e);
-        sb.append(" U").append(b?'+':'-'); //isEntityCanBeUnloaded
+        boolean u = OptiServerUtils.isEntityCanBeUnloaded(e);
+        sb.append(" U").append(u?'+':'-'); 
+
+        //данному классу существ разрешено спавниться по несколько штук в одних и тех же координатах MaxPackSize Spawn
+        boolean a = OptiServerUtils.isAllowedSwarmSpawn(e);
+        sb.append(" S").append(a?'+':'-');
 
         return sb;
     }
 
-    
-    public static String getItemInfo(Item item) {
-        if (item==null) return "null";
-        int id = Item.getIdFromItem(item);
-        return id + " "+ item.getClass().getCanonicalName() + " " + item.getUnlocalizedName();
-    }
 
 
-    /**
-     * ДОбавление без постредника в виде String
-     * Недостаток - погрешность точности на мелких значениях
-     * 9.003 - > 9.002
-     * @param sb
-     * @param d число которое нужно добавить
-     * @param n число знаков после запятой
-     */
-    public static void appendDouble(StringBuilder sb, double d, int n) {
-        if (sb == null) return;
-        long iPart = (long) d;
-        sb.append(iPart);
-        if (n > 0 && n < 10) {
-            int nn = (int)Math.pow(10, n);
-            long fPart = (long) ((d - iPart) * nn);
-            sb.append('.');
 
-            int l = sb.length();
-            sb.append(fPart);
-            int rem = n - (sb.length() - l);
-            if (rem < n) {
-                for (int i = 0; i < rem; i++) {
-                    sb.insert(l, '0');
-                }
-            }
-        }
-        sb.append(' ');
-    }
-
-    /**
-     * Получить чанк из памяти, в котором находится или в который хочет войти
-     * существо по заданным координатам posXZ
-     * С проверкой на соответствие координат чанка и координат точки мира для существ
-     * уже добавленных в чанк
-     * Если чанк не загружен в память вернёт null, но не будет его загружать\генерировать
-     * @param e
-     * @return
-     */
-    public static Chunk getLoadedChunkOrNullForEntity(Entity e) {
-        if (e == null || e.worldObj == null) return null;
-        int cx = MathHelper.floor_double(e.posX / 16.0D);
-        int cz = MathHelper.floor_double(e.posZ / 16.0D);
-        if (e.addedToChunk) {
-            if (cx != e.chunkCoordX || cz != e.chunkCoordZ) {
-                /*DEBUG*/
-                Logger.error(String.format("Not equals posXZ & chunkCoordXZ in Entity %s (%s) ", e.getCommandSenderName(), Logger.getCoordinatesString(e)));
-                cx = e.chunkCoordX;
-                cz = e.chunkCoordZ;
-            }
-        }
-        return getLoadedChunkOfNull(e.worldObj, cx, cz);
-    }
-
-    public static Chunk getLoadedChunkOfNull(World worldObj, int chunkX, int chunkZ) {
-        return worldObj.getChunkProvider().chunkExists(chunkX, chunkZ)
-                ? worldObj.getChunkFromChunkCoords(chunkX, chunkZ)
-                : null;
-    }
-
-    /**
-     * Получить конкретный лист существ из Chunk.entitylists[] по posY
-     * @param chunk
-     * @param posY
-     * @return
-     */
-    public static List getEntityListForPosYAt(Chunk chunk, double posY) {
-        if (chunk != null && chunk.entityLists != null) {
-            int k = MathHelper.floor_double(posY / 16.0D);
-            if (k >= 0 && k < chunk.entityLists.length) {
-                return chunk.entityLists[k];
-            }
-        }
-        return Collections.emptyList();
-    }
-
-    /**
-     * Chunk.entitylist по координатом точки в мире
-     * Лист Существ (из самого чанка) в куске размером 16x16x16 (Например по кордам существа)
-     * Выдаст только в том случае если чанк уже загружен иначе пустой лист
-     */
-    public static List getChunkEntityListForCoords(World worldObj, double posX, double posY, double posZ) {
-        if (worldObj != null) {
-            int cx = MathHelper.floor_double(posX / 16.0D);
-            int cz = MathHelper.floor_double(posZ / 16.0D);
-            if (worldObj.getChunkProvider().chunkExists(cx, cz)) {
-                Chunk chunk = worldObj.getChunkFromChunkCoords(cx, cz);
-                return getEntityListForPosYAt(chunk, posY);
-            }
-        }
-        return Collections.emptyList();
-    }
-    /**
-     * Получить первое существо не ignoreInstance надодящееся внутри заданных координат
-     * todo пересечение с кубом корординаты?
-     */
-    public static Entity getEntityByPosition(World worldObj, double posX, double posY, double posZ, List<Entity> ignoreInstances) {
-        if (worldObj==null) return null;
-        List list = getChunkEntityListForCoords(worldObj, posX, posY, posZ);
-        if (list!=null && !list.isEmpty()) {
-            for (int i = 0; i < list.size(); i++) {
-                Entity e = (Entity) list.get(i);
-                if (
-                    Math.abs(posX - e.posX) <= 1 &&
-                    Math.abs(posY - e.posY) <= 1 &&
-                    Math.abs(posZ - e.posZ) <= 1) {
-                    if (ignoreInstances == null || ignoreInstances!=null && !ignoreInstances.contains(e))
-                        return e;
-                }
-            }
-        }
-        return null;
-    }
-    
-    public static Entity getEntityById(World worldObj, int id) {
-        if (worldObj==null || worldObj.loadedEntityList==null) return null;
-        for (int i = 0; i < worldObj.loadedEntityList.size(); i++) {
-            Entity e = (Entity) worldObj.loadedEntityList.get(i);
-            if (e != null && e.getEntityId() == id)
-                return e;
-        }
-        return null;
-    }
-    /**
-     * Проверяю реальное наличие обьекта существа (по его кордам) в Chunk.entityList
-     * Для проверки случая когда например заспавнившееся существо еще не
-     * добавлено ни в один из чанков
-     * @param e
-     * @return
-     * Проверка подлинности флага e.addedToChunk
-     */
-    public static boolean isRealyEntityAddedToChunk(Entity e) {
-        Chunk chunk = getLoadedChunkOrNullForEntity(e);
-        List list = getEntityListForPosYAt(chunk, e.posY);
-        if (list != null && !list.isEmpty()) {
-            for (int i = 0; i < list.size(); i++) {
-                Object el = list.get(i);
-                if (el == e) return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Получение возможных двойников-клонов заданного entity
-     * Получить всех существ с таким же классом как переденное существо,
-     * находящиеся почти на тех же координатах что заданное (не дальше чем на 0.1)
-     * @param entity новое спавнящиеся существо как загруженое с диска так и сгенерированное в рантайме
-     * addedToChunk
-     * @param outList
-     * @param clear
-     * @return
-     */
-    public static int getDuplicatePossibleEntitesFor(Entity entity, List<Entity> outList, boolean clear) {
-        Objects.requireNonNull(entity);
-        Objects.requireNonNull(outList, "Out list is null");
-        if (clear) {
-            outList.clear();
-        }
-        List list = getChunkEntityListForCoords(entity.worldObj, entity.posX, entity.posY, entity.posZ);
-        if (list == null || list.isEmpty()) return 0;
-        int last = outList.size();
-        int oldestIndex = -1;
-        long oldestTickAge = -1L;
-        for (int i = 0; i < list.size(); i++) {
-            Entity en = (Entity)list.get(i);
-            if (isDuplicateEx(en, entity)) {
-                outList.add(en);
-                //замена последующей сортировки для удаления из листа самого старого существа
-                if (en.ticksExisted > oldestTickAge) {
-                    oldestIndex = outList.size() -1;
-                    oldestTickAge = en.ticksExisted;
-                }
-                /*Это случай спавна нового существа прямо на корды уже существующего
-                  добавляю в лист дубрирующихся, чтобы оставить старое */
-                if (!entity.addedToChunk && !outList.contains(entity)) {
-                    outList.add(entity);
-                }
-            }
-        }
-        /* Убираем самое старое существо из претендентов на смерть
-        TODO тут одна тонкость может быть, замечал такие случаи когда,
-        новое спавнящееся существо еще не добавлено в чанк и получится, что если
-        там на тех же кордах уже есть такого же класса существо, то оно
-        убирётся со списка на удаление, а новое будет добавлено*/
-        if (oldestIndex >= 0) {
-            outList.remove(oldestIndex);
-        }
-        return outList.size() - last;
-    }
-
-    /**
-     * Одного класса координаты почти идентичны - клоны
-     */
-    public static boolean isDuplicateEx(Entity e1, Entity e2) {
-        return (e1 != null && e2 != null &&
-                e1 != e2 && //должны быть разные обьекты
-                // isAssignableFrom()  en.boundingBox.intersectsWith(p_76618_2_)
-                e1.getClass() == e2.getClass()
-                && OptiServerUtils.approximatelyEquals(e1.posX, e2.posX)
-                && OptiServerUtils.approximatelyEquals(e1.posY, e2.posY)
-                && OptiServerUtils.approximatelyEquals(e1.posZ, e2.posZ));
-    }
-
-    /**
-     * Получить количество вероятных клонов существ в конкретном листе чанка
-     * Chunk.entitylist (16x16x16)
-     * list должен содержать инстансы Entity
-     * @param list
-     * @param report если не null - Добавлять читабельную информацию о ходе
-     * поиска клонированных существ
-     * @return
-     */
-    public static int getEntitesDuplicatesCountIn(List list, List<String> report) {
-        if (list == null || list.size() <= 1) return 0;//1 существо на весь кусок чанка не может дублироваться
-        int count = 0;
-        boolean mkReport = report != null;
-        /*для исключения лишних проверок*/
-        boolean[] duplicates = new boolean[list.size()];
-
-        for (int i = 0; i < list.size(); i++) {
-            if (duplicates[i]) continue;
-            Entity e1 = (Entity) list.get(i);
-            //if (e1.isDead) continue;Столит ли проверять мёртвые тела??
-            for (int j = 0; j < list.size(); j++) {
-                if (j == i || duplicates[j]) continue;
-                Entity e2 = (Entity) list.get(i);
-                if (isDuplicateEx(e1, e2)) {
-                    count++;
-                    duplicates[i] = true;
-                    duplicates[j] = true;
-                    if (mkReport) {
-                        String line = "DIM" + e2.worldObj.provider.dimensionId + " " + e2.getClass().getSimpleName() + " " + e2.posX + " " + e2.posY + " " + e2.posZ;
-                        if (!report.contains(line)) {
-                            report.add(line);
-                        }
-                    }
-                }
-            }
-        }
-        return count;
-    }
-
-
-    /**
-     * Поиск дублировавшихся инстансов существ по всем мирам сервера
-     * @param report если НЕ нужен читаемый отчёт - передавай null
-     * @return
-     */
-    public static long findDuplicates0(List<String> report) {
-        // по чанкам
-        long total = 0;
-        for (WorldServer ws : MinecraftServer.getServer().worldServers) {
-            int sz = ws.theChunkProviderServer.loadedChunks.size();
-            // обычный цилк чтобы не создавать инстанс List.Iterator
-            for (int i = 0; i < sz; i++) {
-                Chunk chunk = (Chunk) ws.theChunkProviderServer.loadedChunks.get(i);
-                for (List l : chunk.entityLists) {
-                    total += OptiServerUtils.getEntitesDuplicatesCountIn(l, report);
-                }
-
-                //TODO TileEntity
-                if (checkTileEntityDuplicates) {
-
-                }
-            }
-        }
-        return total;
-    }
-
-    /**
-     * Если не находит возвращает null
-     * @param classname
-     * @return
-     */
-    public static Class getClassForName(String classname) {
-        Class cl = null;
-        try { cl = Class.forName(classname); }
-        catch (ClassNotFoundException ex) {}
-        return cl;
-    }
-
-
-    /* -=[<>]=--------------- COMMAND-LINE TOOLS -------------------=[<>]=--- */
-
-    
-    public static int argsCount (String[] args) {
-        return args == null ? 0 : args.length;
-    }
-
-    public static boolean isDigitsOnly(String line) {
-        if (line==null || line.isEmpty()) return false;
-        for (int i = 0; i < line.length(); i++) {
-            int code = line.charAt(i);
-            if (!( code >= 48 && code <= 57)) return false;
-        }
-        return true;
-    }
-    /**
-     * В наборе аргементов присутствует опциональный параметр c указанным именем
-     * @param args
-     * @param name должен начинаться с тире(минуса)
-     * @return
-     */
-    public static boolean hasOpt(String[] args, String name) {
-        if (args==null || args.length==0 || name==null || name.isEmpty()) return false;
-        for (int i = args.length - 1; i >= 0; i--) {
-            String arg = args[i];
-            if (arg!=null && arg.length() > 1 && arg.charAt(0) == '-' && name.equals(arg)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    //String... нет смысла т.к. либо полное имя либо сокращенное 1 или 2
-    public static boolean isCmd(String cmdName, String name1, String name2) {
-        if (cmdName==null || cmdName.isEmpty()) return false;
-        return name1!=null && cmdName.equalsIgnoreCase(name1) || name2!=null && cmdName.equalsIgnoreCase(name2);
-    }
-
-    public static boolean isCmd(String cmdName, String name) {
-        return isCmd(cmdName, name, null);
-    }
-
-    /**
-     *    0          1  2  3
-     * os chunk-obj 10 10 sub cmd param  -> от 3 {sub cmd param}
-     * simple pipeline
-     * @param args
-     * @param i
-     * @return
-     */
-    public static String[] subArgsFrom(String[] args, int i) {
-        if (args == null) return null;
-        int lastCount = args.length;
-        int rem = lastCount - i;
-        if (rem < 0) rem = 0;
-        String[] subArgs = new String[rem];
-        for (int j = 0; j < rem; j++) {
-            subArgs[j] = args[i+j];
-        }
-        return subArgs;
-    }
-
-    public static String getSubBetween(String source, String tagO, String tagC) {
-        if (source==null || source.isEmpty()) return "";
-        int s = 0, e = source.length();
-        if (tagO!=null && !tagO.isEmpty()) {
-            int p = source.indexOf(tagO);
-            if (p>0) s = p;
-        }
-        if (tagC!=null && !tagC.isEmpty()) {
-            int p = source.indexOf(tagC, s);
-            if (p > 0) e = p;
-        }
-        return source.substring(s, e);
-    }
-
-    /**
-     * Работа со значениями полей класса в рантайме: установка-чтение
-     * Только для открытых полей класса, закрытые оставил не доступными.
-     * @param sender
-     * @param argString fieldName [set] [value]  "list" вместо value выводит список полей
-     * @param clazz класс поле которого интересует
-     * @param instance null если нужно установить значение в статическое поле
-     * @param prefix for full usage
-     * @param readOnly блокировать попытку изменять значения полей
-     */
-    public static void cmdClassFieldInteract(ICommandSender sender, String[] argString, Class clazz, Object instance, String prefix, boolean readOnly, boolean onlyPublic) {
-        int argsCount = OptiServerUtils.argsCount(argString);
-        if (clazz == null) {
-            throw new IllegalStateException("Class not defined");
-        }
-        if (argsCount <= 1) {
-            sender.addChatMessage(new ChatComponentTranslation(prefix + " <filedName|list> [set] [value]"));
-        }
-        else {
-
-            String fName = argString[1];
-            //все реализованные инфетфейсы
-            if (isCmd(fName, "implements", "interface")) {
-                do {
-                    sender.addChatMessage(new ChatComponentText(" --- ("+clazz.toString()+") ---"));
-                    Class[] interfaces = clazz.getInterfaces();
-                    if (interfaces != null && interfaces.length > 0) {
-                        sender.addChatMessage(new ChatComponentText(" --- IMPLEMENTS: ---"));
-                        for (Class aInterface : interfaces) {
-                            sender.addChatMessage(new ChatComponentText(aInterface.getCanonicalName()));
-                        }
-                        sender.addChatMessage(new ChatComponentText("---------------------"));
-                    }
-                    clazz = clazz.getSuperclass(); //ныряем в предка
-                } while (clazz != null && clazz != Object.class);//inheritanse
-                sender.addChatMessage(new ChatComponentText("---------------------"));                
-            }
-            //все поля данного класса и его родителей (поле = значение)
-            else if (isCmd(fName, "list")) {
-                do {
-                    Field[] fields = onlyPublic ? clazz.getFields() : clazz.getDeclaredFields();
-                    sender.addChatMessage(new ChatComponentText(" ------- ("+clazz.toString()+") -------"));
-
-                    for (int i = 0; i < fields.length; i++) {
-                        Object value = "[Reading Failed]";
-                        try {
-                            if (!onlyPublic && !fields[i].isAccessible()) {
-                                fields[i].setAccessible(true);
-                            }
-                            value = fields[i].get(instance);
-                        }
-                        catch (Exception ex) {
-                        }
-                        if (value != null) {
-                            int size = -1;
-                            if (value instanceof List) {
-                                size = ((List)value).size();
-                            }
-                            //for Chunk.entitiesList
-                            if (value instanceof List[]) {
-                                List[] al = (List[])value;
-                                size = 0;
-                                for (int j = 0; j < al.length; j++) {
-                                    List l = al[j];
-                                    if (l != null && !l.isEmpty()) {
-                                        size += l.size();
-                                    }
-                                }
-                            }
-                            else if (value instanceof Map) {
-                                size = ((Map)value).size();
-                            }
-                            else if (value instanceof IntHashMap || value instanceof LongHashMap) {
-                                //size = ((IntHashMap)value). TODO
-                                size = -1; //"?"
-                            }
-                            if (size > -1) {
-                                value = "size = " + String.valueOf(size);//-1 not supported type "?"
-                            }
-                        }
-                        String msg = "("+fields[i].getType().getCanonicalName() + ") " +  fields[i].getName() + " = " + String.valueOf(value);
-                        sender.addChatMessage(new ChatComponentText(msg));//здесь форматирование цвета в строках конфига роняет клиент если через ChatComponentTranslation
-                    }
-                    clazz = clazz.getSuperclass(); //ныряем в предка
-                } while (clazz != null && clazz != Object.class);//inheritanse
-                sender.addChatMessage(new ChatComponentText("---------------------"));
-            }
-
-            else if (fName != null && !fName.isEmpty()) {
-                String response = null;
-                Field field = null;
-                try {
-                    field = clazz.getField(fName);
-                }
-                catch (Exception ex) {
-                }
-                if (field == null) {
-                    response = "not found: "+ fName;
-                } else {
-                    if (argsCount > 3 && isCmd(argString[2], "set", "=")) {
-                        if (!readOnly) {
-                            boolean set = OptiServerUtils.setValue(instance, field, argString[3]);
-                            response = "set " + (set ? "success" : "fail");
-                        } else {
-                            response = "Read only!";
-                        }
-                    } else {
-                        try {
-                            response = String.valueOf(field.get(instance));
-                        }
-                        catch (Exception ex) {
-                            response = "read fail";
-                        }
-                    }
-                }
-                sender.addChatMessage(new ChatComponentText(response));
-            }
-        }
-    }
-
-    public static boolean setValue(Object instance, Field field, Object value) {
-        try {
-            if (!field.isAccessible()) {
-                field.setAccessible(true);
-            }
-            Class type = field.getType();
-            String s = value instanceof String ? (String) value : null;
-            if (s != null) {
-                if (type ==  boolean.class) value = Boolean.valueOf(s);
-                else if (type == int.class) value = Integer.valueOf(s);
-                else if (type == long.class) value = Long.valueOf(s);
-                else if (type == short.class) value = Short.valueOf(s);
-                else if (type == double.class) value = Double.valueOf(s);
-                else if (type == float.class) value = Float.valueOf(s);
-                else if (type == byte.class) value = Byte.valueOf(s);
-                else if (type == String.class) value = s;
-            }
-            field.set(instance, value);
-            return true;
-        }
-        catch (Exception ex) {
-            return false;
-        }
-    }
-
-    public static int stringToChunkCoord(String[] args, int index, boolean needConvertToChunkPos) {
-        if (args == null || args.length <= index) return 0;
-        return needConvertToChunkPos
-                ? MathHelper.floor_double(Double.parseDouble(args[index]) / 16.0D)
-                : Integer.parseInt(args[index]);
-    }
-
-    // 123000 -> 2m 3s
-    public static String millisToReadable(long millis, String prefix) {
-        long sec = millis / 1000L;
-        int d = (int) (sec / 86400L);//24*60*60);
-        if (d > 0) sec -= d * 86400L;
-        int h = (int) (sec / 3600L);//60*60
-        if (h > 0) sec -= h * 3600L;
-        int m = (int) (sec / 60L);
-        if (m > 0) sec -= m * 60L;
-        int s = (int)(sec);
-        StringBuilder sb = new StringBuilder();
-        if (prefix!=null) sb.append(prefix).append(' ');
-
-        if (d > 0) sb.append(d).append("d ");
-        if (h > 0) sb.append(h).append("h ");
-        if (m > 0) sb.append(m).append("m ");
-        if (s > 0) sb.append(s).append("s ");
-        sb.append(" (").append(millis).append("ms)");
-        return sb.toString();
-    }
-
-    public static String getClassInfo(String className) {
-        if (className==null || className.length()<0) return "empty";
-        try {
-            Class clazz = Class.forName(className);
-            //clazz.getClassLoader()
-            StringBuilder sb = new StringBuilder();
-            while (clazz != null && clazz != Object.class) {
-                sb.append(clazz.getCanonicalName()).append(' ');
-                Class[] interfaces = clazz.getInterfaces();
-                if (interfaces!=null && interfaces.length>0) {
-                    sb.append("Interfaces:[");
-                    for (int i = 0; i < interfaces.length; i++) {
-                        Class aInterface = interfaces[i];
-                        if (i>0)sb.append(' ');
-                        sb.append(aInterface.getCanonicalName());
-
-                    }
-                    sb.append(']');
-                }
-                clazz = clazz.getSuperclass();
-                if (clazz == null || clazz == Object.class) {
-                    break;
-                }
-                sb.append(" > ");//наследование от
-            }
-            return sb.toString();
-        }
-        catch (ClassNotFoundException ex) {
-        }
-        return "not found";
-    }
-
-
-    public static Iterator getAllClassesIteratorFor(ClassLoader classLoader) {
-        if (classLoader == null) return null;
-
-        Class classLoaderClass = classLoader.getClass();
-        while (classLoaderClass != java.lang.ClassLoader.class) {
-            classLoaderClass = classLoaderClass.getSuperclass();
-        }
-        try {
-            java.lang.reflect.Field field = classLoaderClass.getDeclaredField("classes");
-            field.setAccessible(true);
-            Vector classes = (Vector) field.get(classLoader);
-            return classes.iterator();
-        } catch (Exception e) {
-            return null;
-        }
-    }
+//    public static String getCoordinatesString(int x, int y, int z) {
+//        return "x:" + x + " y:" + y + " z:" + z;
+//    }
+//
+//    public static String getCoordinatesString(Entity e) {
+//        return "xyz: " + (int)e.posX + " " + (int)e.posY + " " + (int)e.posZ;
+//    }
+//
+//    public static String getCoordinatesString(TileEntity e) {
+//        return "xyz: " + e.xCoord + " " + e.yCoord + " " + e.zCoord;
+//    }
 
 }

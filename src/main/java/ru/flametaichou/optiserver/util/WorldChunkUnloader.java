@@ -12,6 +12,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.ChunkProviderServer;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.util.FakePlayer;
+import static ru.flametaichou.optiserver.OptiServer.LOG;
 
 /*
  * @author stevestech
@@ -182,7 +183,7 @@ public class WorldChunkUnloader {
                         && !forceLoadedChunks.contains(coord)
                         && !spawnLoadedChunks.contains(coord)) {
 
-                    chunksToUnload.add(coord);
+                    this.chunksToUnload.add(coord);
                 }
             }
         }
@@ -195,22 +196,29 @@ public class WorldChunkUnloader {
     public void unloadChunks() {
         initialTime = MinecraftServer.getSystemTimeMillis();
 
-        populateChunksToUnload();
+        populateChunksToUnload();//определяет какие чанки нужно выгрузить
 
         if (this.world.getChunkProvider() instanceof ChunkProviderServer) {
-            for (ChunkCoordIntPair coord : chunksToUnload) {
+            for (ChunkCoordIntPair coord : this.chunksToUnload) {
                 ((ChunkProviderServer) this.world.getChunkProvider()).unloadChunksIfNotNearSpawn(coord.chunkXPos, coord.chunkZPos);
             }
         }
-
-        if (ConfigHelper.debugMode) {
-            Logger.debug("Queued " + String.valueOf(chunksToUnload.size())
-                    + " chunks for unload in dimension " + this.world.provider.getDimensionName()
-                    + " (" + String.valueOf(this.world.provider.dimensionId)
-                    + ") in " + String.valueOf(MinecraftServer.getSystemTimeMillis() - this.initialTime)
-                    + " milliseconds.");
-
+        if (LOG.isDebugOwn()) {
+            LOG.debug("Queued {} chunks for unload in dimension {} ({}) in {} milliseconds.",
+                    chunksToUnload.size(),
+                    this.world.provider.getDimensionName(),
+                    this.world.provider.dimensionId,
+                    (MinecraftServer.getSystemTimeMillis() - this.initialTime)
+            );
         }
+        //if (ConfigHelper.debugMode) {
+        //    MLog.debug("Queued " + String.valueOf(chunksToUnload.size())
+        //            + " chunks for unload in dimension " + this.world.provider.getDimensionName()
+        //            + " (" + String.valueOf(this.world.provider.dimensionId)
+        //            + ") in " + String.valueOf(MinecraftServer.getSystemTimeMillis() - this.initialTime)
+        //            + " milliseconds.");
+        //
+        //}
     }
 
 }
