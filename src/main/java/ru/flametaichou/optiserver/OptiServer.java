@@ -23,7 +23,7 @@ import static ru.flametaichou.optiserver.OptiServer.*;
 @Mod (modid = MODID, name = "Ordinary OptiServer", version = VERSION, acceptableRemoteVersions = "*")
 public class OptiServer {
         public static final String MODID   = "optiserver";
-        public static final String VERSION = "0.3.2";
+        public static final String VERSION = "0.3.3";
         public static final MLog LOG  = new MLog("OptiServer");  //TODO MODID!!!
         
         @Nonnull

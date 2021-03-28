@@ -32,7 +32,7 @@ public class ConfigHelper {
     public static String clearMessage;
     public static boolean checkTileEntityDuplicates;
     /*нужно найти способ как задавать для своего логгера level а пока так*/
-    public static boolean debugMode = true;//<-?->(Mlog)LOG.debug
+    public static boolean debugMode = false;//<-?->(Mlog)LOG.debug
 
     public static final List<Class> allowedSwarmSpawnEntitiesList = new ArrayList<Class>();//список классов существ, которым позволено спавниться по несколько штук в "одном блоке"
     public static final List<Class> persistEntitiesList = new ArrayList<Class>();  //список классов существ которых не удалять при очистке
